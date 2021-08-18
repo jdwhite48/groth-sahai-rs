@@ -13,6 +13,9 @@ keywords = ["cryptography", "NIZK", "zero-knowledge", "elliptic curve", "bilinea
 
 [dependencies]
 
+[dev-dependencies]
+bencher = "0.1.5"
+
 [profile.release]
 debug = true
 
@@ -23,3 +26,4 @@ crate-type = ["cdylib"]
 [[bench]]
 name = "bench"
 harness = false
+path = "benches/example.rs"
