@@ -1,9 +1,25 @@
 [package]
 name = "groth-sahai-rs"
 version = "0.1.0"
-authors = ["jdwhite"]
+authors = ["Jacob White <jdwhite0502@gmail.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "An implementation of the Groth-Sahai zero-knowledge proof system in Rust"
+repository = "https://github.com/jdwhite88/groth-sahai-rs"
+readme = "README.md"
+keywords = ["cryptography", "NIZK", "zero-knowledge", "elliptic curve", "bilinear"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+[profile.release]
+debug = true
+
+[lib]
+bench = false
+crate-type = ["cdylib"]
+
+[[bench]]
+name = "bench"
+harness = false
