@@ -1,3 +1,6 @@
+pub mod generator;
+pub mod commit;
+
 #[cfg(test)]
 mod tests {
     #[test]
