@@ -1,10 +1,14 @@
-pub mod generator;
 pub mod commit;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn unit_tests_work() {
-        assert_eq!(2 + 2, 4);
-    }
+/// Groth-Sahai statement (equation) types
+pub enum GSType {
+    PairingProduct,
+    MultiScalarG1,
+    MultiScalarG2,
+    Quadratic
+}
+
+pub enum Role {
+    Prover,
+    Verifier
 }
