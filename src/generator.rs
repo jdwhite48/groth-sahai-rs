@@ -79,3 +79,43 @@ impl<E: PairingEngine> CRS<E> {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+
+    use ark_bls12_381::{Bls12_381 as F};
+    use ark_ff::{Zero, One};
+    use ark_ec::{ProjectiveCurve, PairingEngine};
+    use ark_std::test_rng;
+
+    use super::*;
+
+    type G1Projective = <F as PairingEngine>::G1Projective;
+    type G1Affine = <F as PairingEngine>::G1Affine;
+    type G2Projective = <F as PairingEngine>::G2Projective;
+    type G2Affine = <F as PairingEngine>::G2Affine;
+    type GT = <F as PairingEngine>::Fqk;
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_valid_CRS() {
+
+        let mut rng = test_rng();
+
+        let crs = CRS::<F>::generate_crs(&mut rng);
+        // Non-degeneracy of bilinear pairing will hold
+        assert_ne!(crs.g1_gen, G1Affine::zero());
+        assert_ne!(crs.g2_gen, G2Affine::zero());
+        // Generator for GT is e(g1,g2)
+        assert_eq!(crs.gt_gen, F::pairing::<G1Affine, G2Affine>(crs.g1_gen, crs.g2_gen));
+        assert_ne!(crs.gt_gen, GT::one());
+
+        // TODO: Other tests?
+        assert_ne!(crs.u.0, Com1::zero());
+        assert_ne!(crs.u.1, Com1::zero());
+        assert_ne!(crs.v.0, Com2::zero());
+        assert_ne!(crs.v.1, Com2::zero());
+    }
+}
+
