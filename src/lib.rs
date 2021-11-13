@@ -1,4 +1,5 @@
 pub mod commit;
+pub mod generator;
 
 /// Groth-Sahai statement (equation) types
 pub enum GSType {
