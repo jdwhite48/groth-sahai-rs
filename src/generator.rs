@@ -1,4 +1,4 @@
-use crate::commit::{B1, B2};
+use crate::commit::*;
 
 use ark_std::rand::{CryptoRng, Rng};
 use ark_ff::{Zero, UniformRand};
@@ -6,8 +6,8 @@ use ark_ec::{AffineCurve, ProjectiveCurve, PairingEngine};
 
 /// Commitment keys for G1 and G2, as well as generators for the bilinear group
 pub struct CRS<E: PairingEngine> {
-    u: (B1<E>, B1<E>),
-    v: (B2<E>, B2<E>),
+    u: (Com1<E>, Com1<E>),
+    v: (Com2<E>, Com2<E>),
     g1_gen: E::G1Affine,
     g2_gen: E::G2Affine,
     gt_gen: E::Fqk,
@@ -63,12 +63,12 @@ impl<E: PairingEngine> CRS<E> {
         // normalize by slice before converting into affine equivalents?
 
         // B1 commitment key for G1
-        let u11 = B1::<E>(p1.into_affine(), q1.into_affine());
-        let u12 = B1::<E>(u1.into_affine(), v1.into_affine());
+        let u11 = Com1::<E>(p1.into_affine(), q1.into_affine());
+        let u12 = Com1::<E>(u1.into_affine(), v1.into_affine());
 
         // B2 commitment key for G2
-        let u21 = B2::<E>(p2.into_affine(), q2.into_affine());
-        let u22 = B2::<E>(u2.into_affine(), v2.into_affine());
+        let u21 = Com2::<E>(p2.into_affine(), q2.into_affine());
+        let u22 = Com2::<E>(u2.into_affine(), v2.into_affine());
 
         CRS::<E> {
             u: (u11, u12),

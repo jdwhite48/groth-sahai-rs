@@ -1,15 +1,41 @@
 use ark_ec::{PairingEngine};
-use ark_std::fmt::Debug;
+use ark_ff::{Zero, One};
+use ark_std::{
+    fmt::Debug,
+    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign}
+};
 
-// TODO: Replace placeholder with B1, B2, BT
-pub trait B1: Eq + Debug + Clone {}
-pub trait B2: Eq + Debug + Clone {}
-pub trait BT<C1: B1, C2: B2>: Eq + Debug + Clone {
-    #[must_use]
+
+/// B1,B2,BT forms a bilinear group for GS commitments
+pub trait B1: Eq
+    + Clone
+    + Debug
+    + Zero
+    + Add<Self, Output = Self>
+//    + AddAssign<Self>
+{}
+pub trait B2: Eq
+    + Clone
+    + Debug
+    + Zero
+    + Add<Self, Output = Self>
+//    + AddAssign<Self>
+{}
+pub trait BT<C1: B1, C2: B2>: 
+    Eq
+    + Clone
+    + Debug
+// TODO: What's multiplication for commitment group BT?
+//    + One
+//    + Mul<Com1<E>, Com2<E>>
+//    + MulAssign<Self>
+{
     fn pairing(x: C1, y: C2) -> Self;
 }
 
-/// B1,B2,BT forms a bilinear group for GS commitments
+// SXDH instantiation's bilinear group for commitments
+
+// TODO: Expose randomness? (see example data_structures in Arkworks)
 #[derive(Clone, Debug)]
 pub struct Com1<E: PairingEngine>(pub E::G1Affine, pub E::G1Affine);
 #[derive(Clone, Debug)]
@@ -40,7 +66,30 @@ impl<E: PairingEngine> PartialEq for Com1<E> {
     }
 }
 impl<E: PairingEngine> Eq for Com1<E> {}
+impl<E: PairingEngine> Add<Com1<E>> for Com1<E> {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self (
+            self.0 + other.0,
+            self.1 + other.1
+        )
+    }
+}
+impl<E: PairingEngine> Zero for Com1<E> {
+    fn zero() -> Com1<E> {
+        Com1::<E> (
+            E::G1Affine::zero(),
+            E::G1Affine::zero()
+        )
+    }
+
+    fn is_zero(&self) -> bool {
+        *self == Com1::<E>::zero()
+    }
+}
 impl<E: PairingEngine> B1 for Com1<E> {}
+
 
 // Com2 implements B2
 impl<E: PairingEngine> PartialEq for Com2<E> {
@@ -49,6 +98,28 @@ impl<E: PairingEngine> PartialEq for Com2<E> {
     }
 }
 impl<E: PairingEngine> Eq for Com2<E> {}
+impl<E: PairingEngine> Add<Com2<E>> for Com2<E> {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self (
+            self.0 + other.0,
+            self.1 + other.1
+        )
+    }
+}
+impl<E: PairingEngine> Zero for Com2<E> {
+    fn zero() -> Com2<E> {
+        Com2::<E> (
+            E::G2Affine::zero(),
+            E::G2Affine::zero()
+        )
+    }
+
+    fn is_zero(&self) -> bool {
+        *self == Com2::<E>::zero()
+    }
+}
 impl<E: PairingEngine> B2 for Com2<E> {}
 
 // ComT implements BT<B1, B2>
@@ -58,6 +129,18 @@ impl<E: PairingEngine> PartialEq for ComT<E> {
     }
 }
 impl<E: PairingEngine> Eq for ComT<E> {}
+/*
+impl<E: PairingEngine> One for ComT<E> {
+    fn one() -> ComT<E> {
+        ComT::<E> (
+            E::Fqk::one(),
+            E::Fqk::one(),
+            E::Fqk::one(),
+            E::Fqk::one()
+        )
+    }
+}
+*/
 impl<E: PairingEngine> BT<Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
     /// B_pairing takes entry-wise pairing products
@@ -90,7 +173,7 @@ mod tests {
     
     #[allow(non_snake_case)]
     #[test]
-    fn test_B_pairing() {
+    fn test_B_pairing_rand() {
         let mut rng = test_rng();
         let b1 = Com1::<F>(
             G1Projective::rand(&mut rng).into_affine(),
