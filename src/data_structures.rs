@@ -1,5 +1,5 @@
 use ark_ec::{PairingEngine};
-use ark_ff::{Zero, One};
+use ark_ff::{Zero, One, Field, field_new};
 use ark_std::{
     fmt::Debug,
     ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign}
@@ -42,6 +42,25 @@ pub struct Com1<E: PairingEngine>(pub E::G1Affine, pub E::G1Affine);
 pub struct Com2<E: PairingEngine>(pub E::G2Affine, pub E::G2Affine);
 #[derive(Clone, Debug)]
 pub struct ComT<E: PairingEngine>(pub E::Fqk, pub E::Fqk, pub E::Fqk, pub E::Fqk);
+
+/*
+pub trait Matrix<Other = Self>:
+    Eq
+    + Debug
+    + Zero
+    + One
+    + Add<Other, Output = Self>
+    + Mul<Other, Output = Self>
+    + AddAssign<Other>
+    + MulAssign<Other>
+{
+    fn transpose(&mut self);
+}
+*/
+
+/// Sparse representation of matrices (with entries being scalar or GT)
+pub type FieldMatrix<F: Field> = Vec<Vec<F>>;
+
 
 // TODO: Combine this into a macro for Com1<E>: B1, Com2<E>: B2, ComT<E>: BT<B1,B2>
 /*
@@ -143,9 +162,10 @@ impl<E: PairingEngine> One for ComT<E> {
 */
 impl<E: PairingEngine> BT<Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
-    /// B_pairing takes entry-wise pairing products
+    /// B_pairing computes entry-wise pairing products
     fn pairing(x: Com1<E>, y: Com2<E>) -> ComT<E> {
         ComT::<E>(
+            // TODO: If either element is 0 (G1 / G2), just output 1 (Fqk)
             E::pairing::<E::G1Affine, E::G2Affine>(x.0.clone(), y.0.clone()),
             E::pairing::<E::G1Affine, E::G2Affine>(x.0.clone(), y.1.clone()),
             E::pairing::<E::G1Affine, E::G2Affine>(x.1.clone(), y.0.clone()),
@@ -153,6 +173,43 @@ impl<E: PairingEngine> BT<Com1<E>, Com2<E>> for ComT<E> {
         )
     }
 }
+
+
+/// Compute row of matrix corresponding to multiplication of matrices a and b
+fn matrix_mul_row<F: Field>(row: &[F], rhs: &FieldMatrix<F>, dim: usize) -> Vec<F> {
+    
+    // Assuming every column in b has the same length
+    let rhs_col_dim = rhs[0].len();
+    (0..rhs_col_dim)
+        .map( |j| {
+            (0..dim) 
+                .map( |k| row[k] * rhs[k][j] ).sum()
+        })
+        .collect::<Vec<F>>()
+}
+
+/// Matrix multiplication of field elements (scalar or GT)
+pub(crate) fn matrix_mul<F: Field>(lhs: &FieldMatrix<F>, rhs: &FieldMatrix<F>) -> FieldMatrix<F> {
+    if lhs.len() == 0 || lhs[0].len() == 0 {
+        return vec![];
+    }
+    if rhs.len() == 0 || rhs[0].len() == 0 {
+        return vec![];
+    }
+
+    // Assuming every row in a and column in b has the same length
+    assert_eq!(lhs[0].len(), rhs.len());
+    let row_dim = lhs.len();
+
+    (0..row_dim)
+        .map( |i| {
+            let row = &lhs[i];
+            let dim = rhs.len();
+            matrix_mul_row::<F>(row, rhs, dim)
+        })
+        .collect::<FieldMatrix<F>>()
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -250,5 +307,85 @@ mod tests {
         assert_eq!(bt.1, GT::one());
         assert_eq!(bt.2, GT::one());
         assert_eq!(bt.3, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.1.clone()));
+    }
+
+    #[test]
+    fn test_scalar_matrix_mul_row() {
+
+        type Fr = <F as PairingEngine>::Fr;
+
+        // 1 x 3 (row) vector
+        let one = Fr::one();
+        let lhs: Vec<Fr> = vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")];
+        // 3 x 1 (column) vector
+        let rhs: FieldMatrix<Fr> = vec![
+            vec![field_new!(Fr, "4")],
+            vec![field_new!(Fr, "5")],
+            vec![field_new!(Fr, "6")]
+        ];
+        let exp: Vec<Fr> = vec![field_new!(Fr, "32")];
+        let res: Vec<Fr> = matrix_mul_row::<Fr>(&lhs, &rhs, 3);
+
+        // 1 x 1 resulting matrix
+        assert_eq!(res.len(), 1);
+   
+        assert_eq!(exp, res);
+    }
+
+
+    #[test]
+    fn test_scalar_matrix_mul_entry() {
+        
+        type Fr = <F as PairingEngine>::Fr;
+        
+        // 1 x 3 (row) vector
+        let one = Fr::one();
+        let lhs: FieldMatrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
+        // 3 x 1 (column) vector
+        let rhs: FieldMatrix<Fr> = vec![
+            vec![field_new!(Fr, "4")],
+            vec![field_new!(Fr, "5")],
+            vec![field_new!(Fr, "6")]
+        ];
+        let exp: FieldMatrix<Fr> = vec![vec![field_new!(Fr, "32")]];
+        let res: FieldMatrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs);
+
+        // 1 x 1 resulting matrix
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].len(), 1);
+   
+        assert_eq!(exp, res);
+    }
+
+
+    #[test]
+    fn test_scalar_matrix_mul() {
+        
+        type Fr = <F as PairingEngine>::Fr;
+        
+        // 2 x 3 (row) vector
+        let one = Fr::one();
+        let lhs: FieldMatrix<Fr> = vec![
+            vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
+            vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")]
+        ];
+        // 3 x 4 (column) vector
+        let rhs: FieldMatrix<Fr> = vec![
+            vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9"), field_new!(Fr, "10")],
+            vec![field_new!(Fr, "11"), field_new!(Fr, "12"), field_new!(Fr, "13"), field_new!(Fr, "14")],
+            vec![field_new!(Fr, "15"), field_new!(Fr, "16"), field_new!(Fr, "17"), field_new!(Fr, "18")]
+        ];
+        let exp: FieldMatrix<Fr> = vec![    
+            vec![field_new!(Fr, "74"), field_new!(Fr, "80"), field_new!(Fr, "86"), field_new!(Fr, "92")],
+            vec![field_new!(Fr, "173"), field_new!(Fr, "188"), field_new!(Fr, "203"), field_new!(Fr, "218")]
+        ];
+        let res: FieldMatrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs);
+
+        // 2 x 4 resulting matrix
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].len(), 4);
+        assert_eq!(res[1].len(), 4);
+
+        assert_eq!(exp, res);
     }
 }

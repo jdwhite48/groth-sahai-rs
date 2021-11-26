@@ -30,10 +30,10 @@ impl<E: PairingEngine> CRS<E> {
         let p2 = E::G2Projective::rand(rng);
 
         // Scalar intermediate values
-        let a1 = <E::G1Affine as AffineCurve>::ScalarField::rand(rng);
-        let a2 = <E::G2Affine as AffineCurve>::ScalarField::rand(rng);
-        let t1 = <E::G1Affine as AffineCurve>::ScalarField::rand(rng);
-        let t2 = <E::G2Affine as AffineCurve>::ScalarField::rand(rng);
+        let a1 = E::Fr::rand(rng);
+        let a2 = E::Fr::rand(rng);
+        let t1 = E::Fr::rand(rng);
+        let t2 = E::Fr::rand(rng);
 
         // Projective intermediate values
         // TODO: Convert scalar for mul into AsRef<[u64]> to multiply with ProjectiveCurve, if that's more efficient
