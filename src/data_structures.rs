@@ -162,7 +162,7 @@ mod tests {
     use ark_ec::{ProjectiveCurve, PairingEngine};
     use ark_std::test_rng;
 
-    use crate::commit::*;
+    use crate::data_structures::*;
 
     type G1Projective = <F as PairingEngine>::G1Projective;
     type G1Affine = <F as PairingEngine>::G1Affine;

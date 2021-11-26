@@ -1,4 +1,4 @@
-use crate::commit::*;
+use crate::data_structures::*;
 
 use ark_std::rand::{CryptoRng, Rng};
 use ark_ff::{Zero, UniformRand};
