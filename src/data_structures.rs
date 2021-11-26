@@ -1,5 +1,5 @@
 use ark_ec::{PairingEngine};
-use ark_ff::{Zero, One, Field, field_new};
+use ark_ff::{Zero, One, Field};
 use ark_std::{
     fmt::Debug,
     ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign}
@@ -7,6 +7,10 @@ use ark_std::{
 
 
 /// B1,B2,BT forms a bilinear group for GS commitments
+
+// TODO: implement AddAssign/MulAssign
+// TODO: Implement as_col_vec for B1, B2 and as_matrix for BT
+// TODO: Implement linear maps for each of B1, B2, BT
 pub trait B1: Eq
     + Clone
     + Debug
@@ -43,6 +47,10 @@ pub struct Com2<E: PairingEngine>(pub E::G2Affine, pub E::G2Affine);
 #[derive(Clone, Debug)]
 pub struct ComT<E: PairingEngine>(pub E::Fqk, pub E::Fqk, pub E::Fqk, pub E::Fqk);
 
+
+// TODO: Refactor code to use Matrix trait (cleaner?)
+// Would have to implement Matrix as a struct instead of pub type ... Vec<...> because "impl X for
+// Vec<...> doesn't work
 /*
 pub trait Matrix<Other = Self>:
     Eq
@@ -59,10 +67,10 @@ pub trait Matrix<Other = Self>:
 */
 
 /// Sparse representation of matrices (with entries being scalar or GT)
-pub type FieldMatrix<F: Field> = Vec<Vec<F>>;
+pub type FieldMatrix<F> = Vec<Vec<F>>;
 
 
-// TODO: Combine this into a macro for Com1<E>: B1, Com2<E>: B2, ComT<E>: BT<B1,B2>
+// TODO: Combine this into a macro for Com1<E>: B1, Com2<E>: B2, ComT<E>: BT<B1,B2> (cleaner?)
 /*
 macro_rules! impl_Com {
     (for $($t:ty),+) => {
@@ -165,7 +173,7 @@ impl<E: PairingEngine> BT<Com1<E>, Com2<E>> for ComT<E> {
     /// B_pairing computes entry-wise pairing products
     fn pairing(x: Com1<E>, y: Com2<E>) -> ComT<E> {
         ComT::<E>(
-            // TODO: If either element is 0 (G1 / G2), just output 1 (Fqk)
+            // TODO: OPTIMIZATION -- If either element is 0 (G1 / G2), just output 1 (Fqk)
             E::pairing::<E::G1Affine, E::G2Affine>(x.0.clone(), y.0.clone()),
             E::pairing::<E::G1Affine, E::G2Affine>(x.0.clone(), y.1.clone()),
             E::pairing::<E::G1Affine, E::G2Affine>(x.1.clone(), y.0.clone()),
@@ -175,7 +183,8 @@ impl<E: PairingEngine> BT<Com1<E>, Com2<E>> for ComT<E> {
 }
 
 
-/// Compute row of matrix corresponding to multiplication of matrices a and b
+/// Compute row of matrix corresponding to multiplication of scalar matrices
+// TODO: OPTIMIZATION -- paralellize with Rayon
 fn matrix_mul_row<F: Field>(row: &[F], rhs: &FieldMatrix<F>, dim: usize) -> Vec<F> {
     
     // Assuming every column in b has the same length
@@ -188,7 +197,8 @@ fn matrix_mul_row<F: Field>(row: &[F], rhs: &FieldMatrix<F>, dim: usize) -> Vec<
         .collect::<Vec<F>>()
 }
 
-/// Matrix multiplication of field elements (scalar or GT)
+/// Matrix multiplication of field elements (scalar/Fr or GT/Fqk)
+// TODO: OPTIMIZATION -- parallelize with Rayon
 pub(crate) fn matrix_mul<F: Field>(lhs: &FieldMatrix<F>, rhs: &FieldMatrix<F>) -> FieldMatrix<F> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
@@ -215,8 +225,8 @@ pub(crate) fn matrix_mul<F: Field>(lhs: &FieldMatrix<F>, rhs: &FieldMatrix<F>) -
 mod tests {
 
     use ark_bls12_381::{Bls12_381 as F};
-    use ark_ff::{UniformRand, Zero, One};
-    use ark_ec::{ProjectiveCurve, PairingEngine};
+    use ark_ff::{UniformRand, field_new};
+    use ark_ec::ProjectiveCurve;
     use ark_std::test_rng;
 
     use crate::data_structures::*;

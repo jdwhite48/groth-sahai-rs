@@ -36,7 +36,7 @@ impl<E: PairingEngine> CRS<E> {
         let t2 = E::Fr::rand(rng);
 
         // Projective intermediate values
-        // TODO: Convert scalar for mul into AsRef<[u64]> to multiply with ProjectiveCurve, if that's more efficient
+        // TODO: OPTIMIZATION -- convert scalar for mul into AsRef<[u64]> to multiply with ProjectiveCurve, if that's more efficient
         let q1 = p1.into_affine().mul(a1);
         let q2 = p2.into_affine().mul(a2);
         let u1 = p1.into_affine().mul(t1);
@@ -45,7 +45,6 @@ impl<E: PairingEngine> CRS<E> {
         let v2: E::G2Projective;
 
         // NOTE: This is supposed to be computationally indistinguishable
-        // MAY BE SUBJECT TO SIDE CHANNEL ATTACKS ON GENERATOR
 
         // Instantiate GS key
         if rng.gen_bool(0.5) {
@@ -59,7 +58,7 @@ impl<E: PairingEngine> CRS<E> {
             v2 = q2.into_affine().mul(t2) - p2;
         }
 
-        // TODO: Optimization: Check if ((u1, v1), (u2, v2)) are normalized and (if not) batch
+        // TODO: OPTIMIZATION -- Check if ((u1, v1), (u2, v2)) are normalized and (if not) batch
         // normalize by slice before converting into affine equivalents?
 
         // B1 commitment key for G1
@@ -104,14 +103,15 @@ mod tests {
         let mut rng = test_rng();
 
         let crs = CRS::<F>::generate_crs(&mut rng);
+
+        // Generator for GT is e(g1,g2)
+        assert_eq!(crs.gt_gen, F::pairing::<G1Affine, G2Affine>(crs.g1_gen, crs.g2_gen));
         // Non-degeneracy of bilinear pairing will hold
         assert_ne!(crs.g1_gen, G1Affine::zero());
         assert_ne!(crs.g2_gen, G2Affine::zero());
-        // Generator for GT is e(g1,g2)
-        assert_eq!(crs.gt_gen, F::pairing::<G1Affine, G2Affine>(crs.g1_gen, crs.g2_gen));
         assert_ne!(crs.gt_gen, GT::one());
 
-        // TODO: Other tests?
+        // Generated commitment keys are non-trivial
         assert_ne!(crs.u.0, Com1::zero());
         assert_ne!(crs.u.1, Com1::zero());
         assert_ne!(crs.v.0, Com2::zero());
