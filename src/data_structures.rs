@@ -9,27 +9,28 @@ use ark_std::{
 /// B1,B2,BT forms a bilinear group for GS commitments
 
 // TODO: implement AddAssign/MulAssign
-// TODO: Implement as_col_vec for B1, B2 and as_matrix for BT
 // TODO: Implement linear maps for each of B1, B2, BT
-pub trait B1: Eq
+pub trait B1<E: PairingEngine>: Eq
     + Clone
     + Debug
     + Zero
     + Add<Self, Output = Self>
 //    + AddAssign<Self>
+    + From<Matrix<E::G1Affine>>
 {
-
+    fn as_col_vec(&self) -> Matrix<E::G1Affine>;
 }
-pub trait B2: Eq
+pub trait B2<E: PairingEngine>: Eq
     + Clone
     + Debug
     + Zero
     + Add<Self, Output = Self>
 //    + AddAssign<Self>
+    + From<Matrix<E::G2Affine>>
 {
-
+    fn as_col_vec(&self) -> Matrix<E::G2Affine>;
 }
-pub trait BT<C1: B1, C2: B2>: 
+pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     Eq
     + Clone
     + Debug
@@ -37,8 +38,10 @@ pub trait BT<C1: B1, C2: B2>:
 //    + One
 //    + Mul<Com1<E>, Com2<E>>
 //    + MulAssign<Self>
+    + From<Matrix<E::Fqk>>
 {
     fn pairing(x: C1, y: C2) -> Self;
+    fn as_matrix(&self) -> Matrix<E::Fqk>;
 }
 
 // SXDH instantiation's bilinear group for commitments
@@ -119,7 +122,25 @@ impl<E: PairingEngine> Zero for Com1<E> {
         *self == Com1::<E>::zero()
     }
 }
-impl<E: PairingEngine> B1 for Com1<E> {}
+
+impl<E: PairingEngine> From<Matrix<E::G1Affine>> for Com1<E> {
+    fn from(mat: Matrix<E::G1Affine>) -> Self {
+
+        assert_eq!(mat.len(), 2);
+        assert_eq!(mat[0].len(), 1);
+        assert_eq!(mat[1].len(), 1);
+        Self (
+            mat[0][0],
+            mat[1][0]
+        )
+    }
+}
+
+impl<E: PairingEngine> B1<E> for Com1<E> {
+    fn as_col_vec(&self) -> Matrix<E::G1Affine> {
+        vec![ vec![self.0], vec![self.1] ]
+    }
+}
 
 
 // Com2 implements B2
@@ -151,7 +172,24 @@ impl<E: PairingEngine> Zero for Com2<E> {
         *self == Com2::<E>::zero()
     }
 }
-impl<E: PairingEngine> B2 for Com2<E> {}
+
+impl<E: PairingEngine> From<Matrix<E::G2Affine>> for Com2<E> {
+    fn from(mat: Matrix<E::G2Affine>) -> Self {
+        assert_eq!(mat.len(), 2);
+        assert_eq!(mat[0].len(), 1);
+        assert_eq!(mat[1].len(), 1);
+        Self (
+            mat[0][0],
+            mat[1][0]
+        )
+    }
+}
+
+impl<E: PairingEngine> B2<E> for Com2<E> {
+    fn as_col_vec(&self) -> Matrix<E::G2Affine> {
+        vec![ vec![self.0], vec![self.1] ]
+    }
+}
 
 // ComT implements BT<B1, B2>
 impl<E: PairingEngine> PartialEq for ComT<E> {
@@ -172,7 +210,22 @@ impl<E: PairingEngine> One for ComT<E> {
     }
 }
 */
-impl<E: PairingEngine> BT<Com1<E>, Com2<E>> for ComT<E> {
+
+impl<E: PairingEngine> From<Matrix<E::Fqk>> for ComT<E> {
+    fn from(mat: Matrix<E::Fqk>) -> Self {
+        assert_eq!(mat.len(), 2);
+        assert_eq!(mat[0].len(), 2);
+        assert_eq!(mat[1].len(), 2);
+        Self (
+            mat[0][0],
+            mat[0][1],
+            mat[1][0],
+            mat[1][1]
+        )
+    }
+}
+
+impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
     /// B_pairing computes entry-wise pairing products
     fn pairing(x: Com1<E>, y: Com2<E>) -> ComT<E> {
@@ -183,6 +236,13 @@ impl<E: PairingEngine> BT<Com1<E>, Com2<E>> for ComT<E> {
             E::pairing::<E::G1Affine, E::G2Affine>(x.1.clone(), y.0.clone()),
             E::pairing::<E::G1Affine, E::G2Affine>(x.1.clone(), y.1.clone()),
         )
+    }
+
+    fn as_matrix(&self) -> Matrix<E::Fqk> {
+        vec![
+            vec![ self.0, self.1 ],
+            vec![ self.2, self.3 ]
+        ]
     }
 }
 
@@ -401,5 +461,65 @@ mod tests {
         assert_eq!(res[1].len(), 4);
 
         assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_into_vec_and_matrix() {
+
+        let mut rng = test_rng();
+        let b1 = Com1::<F>(
+            G1Projective::rand(&mut rng).into_affine(),
+            G1Projective::rand(&mut rng).into_affine()
+        );
+        let b2 = Com2::<F>(
+            G2Projective::rand(&mut rng).into_affine(),
+            G2Projective::rand(&mut rng).into_affine()
+        );
+        let bt = ComT::pairing(b1.clone(), b2.clone());
+
+        // B1 and B2 can be representing as 2-dim column vectors
+        assert_eq!(b1.as_col_vec(), vec![vec![b1.0], vec![b1.1]]);
+        assert_eq!(b2.as_col_vec(), vec![vec![b2.0], vec![b2.1]]);
+        // BT can be represented as a 2 x 2 matrix
+        assert_eq!(bt.as_matrix(), vec![vec![bt.0, bt.1], vec![bt.2, bt.3]]);
+    }
+
+
+    #[test]
+    fn test_from_vec_and_matrix() {
+
+        let mut rng = test_rng();
+        let b1_vec = vec![
+            vec![G1Projective::rand(&mut rng).into_affine()],
+            vec![G1Projective::rand(&mut rng).into_affine()]
+        ];
+
+        let b2_vec = vec![
+            vec![G2Projective::rand(&mut rng).into_affine()],
+            vec![G2Projective::rand(&mut rng).into_affine()]
+        ];
+        let bt_vec = vec![
+            vec![
+                F::pairing::<G1Affine, G2Affine>(b1_vec[0][0].clone(), b2_vec[0][0].clone()),
+                F::pairing::<G1Affine, G2Affine>(b1_vec[0][0].clone(), b2_vec[1][0].clone()),
+            ],
+            vec![
+                F::pairing::<G1Affine, G2Affine>(b1_vec[1][0].clone(), b2_vec[0][0].clone()),
+                F::pairing::<G1Affine, G2Affine>(b1_vec[1][0].clone(), b2_vec[1][0].clone())
+            ]
+        ];
+
+        let b1 = Com1::<F>::from(b1_vec.clone());
+        let b2 = Com2::<F>::from(b2_vec.clone());
+        let bt = ComT::<F>::from(bt_vec.clone());
+
+        assert_eq!(b1.0, b1_vec[0][0]);
+        assert_eq!(b1.1, b1_vec[1][0]);
+        assert_eq!(b2.0, b2_vec[0][0]);
+        assert_eq!(b2.1, b2_vec[1][0]);
+        assert_eq!(bt.0, bt_vec[0][0]);
+        assert_eq!(bt.1, bt_vec[0][1]);
+        assert_eq!(bt.2, bt_vec[1][0]);
+        assert_eq!(bt.3, bt_vec[1][1]);
     }
 }
