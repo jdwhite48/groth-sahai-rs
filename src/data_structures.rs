@@ -17,14 +17,18 @@ pub trait B1: Eq
     + Zero
     + Add<Self, Output = Self>
 //    + AddAssign<Self>
-{}
+{
+
+}
 pub trait B2: Eq
     + Clone
     + Debug
     + Zero
     + Add<Self, Output = Self>
 //    + AddAssign<Self>
-{}
+{
+
+}
 pub trait BT<C1: B1, C2: B2>: 
     Eq
     + Clone
@@ -67,7 +71,7 @@ pub trait Matrix<Other = Self>:
 */
 
 /// Sparse representation of matrices (with entries being scalar or GT)
-pub type FieldMatrix<F> = Vec<Vec<F>>;
+pub type Matrix<F> = Vec<Vec<F>>;
 
 
 // TODO: Combine this into a macro for Com1<E>: B1, Com2<E>: B2, ComT<E>: BT<B1,B2> (cleaner?)
@@ -185,7 +189,7 @@ impl<E: PairingEngine> BT<Com1<E>, Com2<E>> for ComT<E> {
 
 /// Compute row of matrix corresponding to multiplication of scalar matrices
 // TODO: OPTIMIZATION -- paralellize with Rayon
-fn matrix_mul_row<F: Field>(row: &[F], rhs: &FieldMatrix<F>, dim: usize) -> Vec<F> {
+fn matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize) -> Vec<F> {
     
     // Assuming every column in b has the same length
     let rhs_col_dim = rhs[0].len();
@@ -199,7 +203,7 @@ fn matrix_mul_row<F: Field>(row: &[F], rhs: &FieldMatrix<F>, dim: usize) -> Vec<
 
 /// Matrix multiplication of field elements (scalar/Fr or GT/Fqk)
 // TODO: OPTIMIZATION -- parallelize with Rayon
-pub(crate) fn matrix_mul<F: Field>(lhs: &FieldMatrix<F>, rhs: &FieldMatrix<F>) -> FieldMatrix<F> {
+pub(crate) fn matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>) -> Matrix<F> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
     }
@@ -217,7 +221,7 @@ pub(crate) fn matrix_mul<F: Field>(lhs: &FieldMatrix<F>, rhs: &FieldMatrix<F>) -
             let dim = rhs.len();
             matrix_mul_row::<F>(row, rhs, dim)
         })
-        .collect::<FieldMatrix<F>>()
+        .collect::<Matrix<F>>()
 }
 
 
@@ -328,7 +332,7 @@ mod tests {
         let one = Fr::one();
         let lhs: Vec<Fr> = vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")];
         // 3 x 1 (column) vector
-        let rhs: FieldMatrix<Fr> = vec![
+        let rhs: Matrix<Fr> = vec![
             vec![field_new!(Fr, "4")],
             vec![field_new!(Fr, "5")],
             vec![field_new!(Fr, "6")]
@@ -350,15 +354,15 @@ mod tests {
         
         // 1 x 3 (row) vector
         let one = Fr::one();
-        let lhs: FieldMatrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
+        let lhs: Matrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
         // 3 x 1 (column) vector
-        let rhs: FieldMatrix<Fr> = vec![
+        let rhs: Matrix<Fr> = vec![
             vec![field_new!(Fr, "4")],
             vec![field_new!(Fr, "5")],
             vec![field_new!(Fr, "6")]
         ];
-        let exp: FieldMatrix<Fr> = vec![vec![field_new!(Fr, "32")]];
-        let res: FieldMatrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs);
+        let exp: Matrix<Fr> = vec![vec![field_new!(Fr, "32")]];
+        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs);
 
         // 1 x 1 resulting matrix
         assert_eq!(res.len(), 1);
@@ -375,21 +379,21 @@ mod tests {
         
         // 2 x 3 (row) vector
         let one = Fr::one();
-        let lhs: FieldMatrix<Fr> = vec![
+        let lhs: Matrix<Fr> = vec![
             vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
             vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")]
         ];
         // 3 x 4 (column) vector
-        let rhs: FieldMatrix<Fr> = vec![
+        let rhs: Matrix<Fr> = vec![
             vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9"), field_new!(Fr, "10")],
             vec![field_new!(Fr, "11"), field_new!(Fr, "12"), field_new!(Fr, "13"), field_new!(Fr, "14")],
             vec![field_new!(Fr, "15"), field_new!(Fr, "16"), field_new!(Fr, "17"), field_new!(Fr, "18")]
         ];
-        let exp: FieldMatrix<Fr> = vec![    
+        let exp: Matrix<Fr> = vec![
             vec![field_new!(Fr, "74"), field_new!(Fr, "80"), field_new!(Fr, "86"), field_new!(Fr, "92")],
             vec![field_new!(Fr, "173"), field_new!(Fr, "188"), field_new!(Fr, "203"), field_new!(Fr, "218")]
         ];
-        let res: FieldMatrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs);
+        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs);
 
         // 2 x 4 resulting matrix
         assert_eq!(res.len(), 2);
