@@ -36,10 +36,9 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     Eq
     + Clone
     + Debug
-// TODO: What's multiplication for commitment group BT?
-//    + One
-//    + Mul<Com1<E>, Com2<E>>
-//    + MulAssign<Self>
+    + Zero
+    + Add<Self, Output = Self>
+//    + AddAssign<Self>
     + From<Matrix<E::Fqk>>
 {
     fn pairing(x: C1, y: C2) -> Self;
@@ -114,15 +113,15 @@ impl<E: PairingEngine> Add<Com1<E>> for Com1<E> {
     }
 }
 impl<E: PairingEngine> Zero for Com1<E> {
-    fn zero() -> Com1<E> {
-        Com1::<E> (
+    fn zero() -> Self {
+        Self (
             E::G1Affine::zero(),
             E::G1Affine::zero()
         )
     }
 
     fn is_zero(&self) -> bool {
-        *self == Com1::<E>::zero()
+        *self == Self::zero()
     }
 }
 
@@ -171,15 +170,15 @@ impl<E: PairingEngine> Add<Com2<E>> for Com2<E> {
     }
 }
 impl<E: PairingEngine> Zero for Com2<E> {
-    fn zero() -> Com2<E> {
-        Com2::<E> (
+    fn zero() -> Self {
+        Self (
             E::G2Affine::zero(),
             E::G2Affine::zero()
         )
     }
 
     fn is_zero(&self) -> bool {
-        *self == Com2::<E>::zero()
+        *self == Self::zero()
     }
 }
 
@@ -215,19 +214,34 @@ impl<E: PairingEngine> PartialEq for ComT<E> {
     }
 }
 impl<E: PairingEngine> Eq for ComT<E> {}
-/*
-impl<E: PairingEngine> One for ComT<E> {
-    fn one() -> ComT<E> {
-        ComT::<E> (
+
+/// Addition for BT is entry-wise multiplication
+impl<E: PairingEngine> Add<ComT<E>> for ComT<E> {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self (
+            self.0 * other.0,
+            self.1 * other.1,
+            self.2 * other.2,
+            self.3 * other.3,
+        )
+    }
+}
+impl<E: PairingEngine> Zero for ComT<E> {
+    fn zero() -> Self {
+        Self (
             E::Fqk::one(),
             E::Fqk::one(),
             E::Fqk::one(),
             E::Fqk::one()
         )
     }
-}
-*/
 
+    fn is_zero(&self) -> bool {
+        *self == Self::zero()
+    }
+}
 impl<E: PairingEngine> From<Matrix<E::Fqk>> for ComT<E> {
     fn from(mat: Matrix<E::Fqk>) -> Self {
         assert_eq!(mat.len(), 2);
