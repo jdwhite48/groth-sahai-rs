@@ -451,7 +451,7 @@ mod tests {
     fn test_scalar_matrix_mul_entry() {
         
         type Fr = <F as PairingEngine>::Fr;
-        
+
         // 1 x 3 (row) vector
         let one = Fr::one();
         let lhs: Matrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
@@ -561,5 +561,45 @@ mod tests {
         assert_eq!(bt.1, bt_vec[0][1]);
         assert_eq!(bt.2, bt_vec[1][0]);
         assert_eq!(bt.3, bt_vec[1][1]);
+    }
+
+    #[test]
+    fn test_linear_maps() {
+
+        let mut rng = test_rng();
+        let g1 = G1Projective::rand(&mut rng).into_affine();
+        let g2 = G2Projective::rand(&mut rng).into_affine();
+        let b1 = Com1::<F>::linear_map(g1);
+        let b2 = Com2::<F>::linear_map(g2);
+
+        assert_eq!(b1.0, G1Affine::zero());
+        assert_eq!(b1.1, g1);
+        assert_eq!(b2.0, G2Affine::zero());
+        assert_eq!(b2.1, g2);
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_PPE_linear_bilinear_map_commutativity() {
+
+        type Fqk = <F as PairingEngine>::Fqk;
+
+        let mut rng = test_rng();
+        let g1 = G1Projective::rand(&mut rng).into_affine();
+        let g2 = G2Projective::rand(&mut rng).into_affine();
+        let gt = F::pairing::<G1Affine, G2Affine>(g1.clone(), g2.clone());
+        let b1 = Com1::<F>::linear_map(g1);
+        let b2 = Com2::<F>::linear_map(g2);
+
+        let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
+        let bt_bilin_lin = ComT::<F>::linear_map(gt);
+
+        assert_eq!(bt_lin_bilin.0, Fqk::one());
+        assert_eq!(bt_lin_bilin.1, Fqk::one());
+        assert_eq!(bt_lin_bilin.2, Fqk::one());
+        assert_eq!(bt_bilin_lin.0, Fqk::one());
+        assert_eq!(bt_bilin_lin.1, Fqk::one());
+        assert_eq!(bt_bilin_lin.2, Fqk::one());
+        assert_eq!(bt_lin_bilin.3, bt_bilin_lin.3);
     }
 }

@@ -3,6 +3,7 @@ extern crate groth_sahai;
 #[cfg(test)]
 mod commit_int_tests {
 
+    /*
     use ark_bls12_381::{Bls12_381 as F};
     use ark_ec::{ProjectiveCurve, PairingEngine};
     use ark_ff::UniformRand;
@@ -34,4 +35,5 @@ mod commit_int_tests {
         assert_eq!(bt_lin_bilin.2, bt_bilin_lin.2);
         assert_eq!(bt_lin_bilin.3, bt_bilin_lin.3);
     }
+    */
 }
