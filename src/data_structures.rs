@@ -9,7 +9,7 @@ use ark_std::{
 /// B1,B2,BT forms a bilinear group for GS commitments
 
 // TODO: implement AddAssign/MulAssign
-// TODO: Implement linear maps for each of B1, B2, BT
+// TODO: Implement scalar linear maps for B1, B2
 pub trait B1<E: PairingEngine>: Eq
     + Clone
     + Debug
@@ -19,6 +19,7 @@ pub trait B1<E: PairingEngine>: Eq
     + From<Matrix<E::G1Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G1Affine>;
+    fn linear_map(g1: E::G1Affine) -> Self;
 }
 pub trait B2<E: PairingEngine>: Eq
     + Clone
@@ -29,6 +30,7 @@ pub trait B2<E: PairingEngine>: Eq
     + From<Matrix<E::G2Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G2Affine>;
+    fn linear_map(g2: E::G2Affine) -> Self;
 }
 pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     Eq
@@ -42,6 +44,7 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
 {
     fn pairing(x: C1, y: C2) -> Self;
     fn as_matrix(&self) -> Matrix<E::Fqk>;
+    fn linear_map(gt: E::Fqk) -> Self;
 }
 
 // SXDH instantiation's bilinear group for commitments
@@ -140,6 +143,13 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
     fn as_col_vec(&self) -> Matrix<E::G1Affine> {
         vec![ vec![self.0], vec![self.1] ]
     }
+
+    fn linear_map(g1: E::G1Affine) -> Self {
+        Self (
+            E::G1Affine::zero(),
+            g1.clone()
+        )
+    }
 }
 
 
@@ -188,6 +198,13 @@ impl<E: PairingEngine> From<Matrix<E::G2Affine>> for Com2<E> {
 impl<E: PairingEngine> B2<E> for Com2<E> {
     fn as_col_vec(&self) -> Matrix<E::G2Affine> {
         vec![ vec![self.0], vec![self.1] ]
+    }
+
+    fn linear_map(g2: E::G2Affine) -> Self {
+        Self (
+            E::G2Affine::zero(),
+            g2.clone()
+        )
     }
 }
 
@@ -243,6 +260,15 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
             vec![ self.0, self.1 ],
             vec![ self.2, self.3 ]
         ]
+    }
+
+    fn linear_map(gt: E::Fqk) -> Self {
+        Self (
+            E::Fqk::one(),
+            E::Fqk::one(),
+            E::Fqk::one(),
+            gt.clone()
+        )
     }
 }
 

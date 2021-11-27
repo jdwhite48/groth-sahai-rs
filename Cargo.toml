@@ -1,5 +1,5 @@
 [package]
-name = "groth-sahai-rs"
+name = "groth_sahai"
 version = "0.1.0"
 authors = ["Jacob White <white570@purdue.edu>"]
 edition = "2018"
@@ -24,10 +24,6 @@ criterion = { version = "0.3", features = [ "html_reports" ] } # benchmarks
 
 [profile.release]
 debug = true
-
-[lib]
-bench = false
-crate-type = ["cdylib"]
 
 [[bench]]
 name = "bench"

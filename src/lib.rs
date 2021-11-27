@@ -1,3 +1,4 @@
+
 pub mod data_structures;
 pub mod generator;
 
@@ -14,5 +15,5 @@ pub enum Role {
     Verifier
 }
 
-pub use generator::CRS;
-pub use data_structures::{Com1, Com2, ComT};
+pub use crate::generator::CRS;
+pub use crate::data_structures::{B1, B2, BT, Com1, Com2, ComT, Matrix};
