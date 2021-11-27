@@ -4,7 +4,7 @@ use ark_std::{
     fmt::Debug,
     ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign}
 };
-
+use rayon::prelude::*;
 
 /// B1,B2,BT forms a bilinear group for GS commitments
 
@@ -288,22 +288,40 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
 
 
 /// Compute row of matrix corresponding to multiplication of scalar matrices
-// TODO: OPTIMIZATION -- paralellize with Rayon
-fn matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize) -> Vec<F> {
+fn matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize, is_parallel: bool) -> Vec<F> {
     
     // Assuming every column in b has the same length
     let rhs_col_dim = rhs[0].len();
-    (0..rhs_col_dim)
-        .map( |j| {
-            (0..dim) 
-                .map( |k| row[k] * rhs[k][j] ).sum()
-        })
-        .collect::<Vec<F>>()
+    
+    if is_parallel {
+        let mut cols = (0..rhs_col_dim)
+            .into_par_iter()
+            .map( |j| {
+                (j, (0..dim).map( |k| row[k] * rhs[k][j] ).sum())
+            })
+            .collect::<Vec<(usize, F)>>();
+
+        // After computing concurrently, sort by index
+        cols.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+        // Strip off index and return Vec<F>
+        cols.into_iter()
+            .map( |(_, elem)| elem)
+            .collect()
+    }
+    else {
+        (0..rhs_col_dim)
+            .map( |j| {
+                (0..dim).map( |k| row[k] * rhs[k][j] ).sum()
+            })
+            .collect::<Vec<F>>()
+    }
 }
 
+
+// TODO: Change to pub(crate)?
 /// Matrix multiplication of field elements (scalar/Fr or GT/Fqk)
-// TODO: OPTIMIZATION -- parallelize with Rayon
-pub(crate) fn matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>) -> Matrix<F> {
+pub fn matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_parallel: bool) -> Matrix<F> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
     }
@@ -315,15 +333,34 @@ pub(crate) fn matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>) -> Matrix<F
     assert_eq!(lhs[0].len(), rhs.len());
     let row_dim = lhs.len();
 
-    (0..row_dim)
-        .map( |i| {
-            let row = &lhs[i];
-            let dim = rhs.len();
-            matrix_mul_row::<F>(row, rhs, dim)
-        })
-        .collect::<Matrix<F>>()
-}
+    if is_parallel { 
+        let mut rows = (0..row_dim)
+            .into_par_iter()
+            .map( |i| {
+                let row = &lhs[i];
+                let dim = rhs.len();
+                (i, matrix_mul_row::<F>(row, rhs, dim, is_parallel))
+            })
+            .collect::<Vec<(usize, Vec<F>)>>();
 
+        // After computing concurrently, sort by index
+    //    rows.par_sort_by(|left, right| left.0.cmp(&right.0));
+        
+        // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
+        rows.into_iter()
+            .map( |(_, row)| row)
+            .collect()
+    }
+    else {
+        (0..row_dim)
+            .map( |i| {
+                let row = &lhs[i];
+                let dim = rhs.len();
+                matrix_mul_row::<F>(row, rhs, dim, is_parallel)
+            })
+            .collect::<Vec<Vec<F>>>()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -438,7 +475,7 @@ mod tests {
             vec![field_new!(Fr, "6")]
         ];
         let exp: Vec<Fr> = vec![field_new!(Fr, "32")];
-        let res: Vec<Fr> = matrix_mul_row::<Fr>(&lhs, &rhs, 3);
+        let res: Vec<Fr> = matrix_mul_row::<Fr>(&lhs, &rhs, 3, false);
 
         // 1 x 1 resulting matrix
         assert_eq!(res.len(), 1);
@@ -462,7 +499,7 @@ mod tests {
             vec![field_new!(Fr, "6")]
         ];
         let exp: Matrix<Fr> = vec![vec![field_new!(Fr, "32")]];
-        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs);
+        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs, false);
 
         // 1 x 1 resulting matrix
         assert_eq!(res.len(), 1);
@@ -477,13 +514,13 @@ mod tests {
         
         type Fr = <F as PairingEngine>::Fr;
         
-        // 2 x 3 (row) vector
+        // 2 x 3 matrix
         let one = Fr::one();
         let lhs: Matrix<Fr> = vec![
             vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
             vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")]
         ];
-        // 3 x 4 (column) vector
+        // 3 x 4 matrix
         let rhs: Matrix<Fr> = vec![
             vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9"), field_new!(Fr, "10")],
             vec![field_new!(Fr, "11"), field_new!(Fr, "12"), field_new!(Fr, "13"), field_new!(Fr, "14")],
@@ -493,7 +530,42 @@ mod tests {
             vec![field_new!(Fr, "74"), field_new!(Fr, "80"), field_new!(Fr, "86"), field_new!(Fr, "92")],
             vec![field_new!(Fr, "173"), field_new!(Fr, "188"), field_new!(Fr, "203"), field_new!(Fr, "218")]
         ];
-        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs);
+        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs, false);
+
+        // 2 x 4 resulting matrix
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].len(), 4);
+        assert_eq!(res[1].len(), 4);
+
+        assert_eq!(exp, res);
+    }
+
+
+
+
+
+    #[test]
+    fn test_scalar_matrix_mul_rayon() {
+        
+        type Fr = <F as PairingEngine>::Fr;
+        
+        // 2 x 3 matrix
+        let one = Fr::one();
+        let lhs: Matrix<Fr> = vec![
+            vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
+            vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")]
+        ];
+        // 3 x 4 matrix
+        let rhs: Matrix<Fr> = vec![
+            vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9"), field_new!(Fr, "10")],
+            vec![field_new!(Fr, "11"), field_new!(Fr, "12"), field_new!(Fr, "13"), field_new!(Fr, "14")],
+            vec![field_new!(Fr, "15"), field_new!(Fr, "16"), field_new!(Fr, "17"), field_new!(Fr, "18")]
+        ];
+        let exp: Matrix<Fr> = vec![
+            vec![field_new!(Fr, "74"), field_new!(Fr, "80"), field_new!(Fr, "86"), field_new!(Fr, "92")],
+            vec![field_new!(Fr, "173"), field_new!(Fr, "188"), field_new!(Fr, "203"), field_new!(Fr, "218")]
+        ];
+        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs, true);
 
         // 2 x 4 resulting matrix
         assert_eq!(res.len(), 2);

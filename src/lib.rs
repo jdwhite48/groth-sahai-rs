@@ -16,4 +16,4 @@ pub enum Role {
 }
 
 pub use crate::generator::CRS;
-pub use crate::data_structures::{B1, B2, BT, Com1, Com2, ComT, Matrix};
+pub use crate::data_structures::*;
