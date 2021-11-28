@@ -513,7 +513,7 @@ pub(crate) fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Mat
 }
 
 /// Compute out-of-place transpose of a matrix
-fn matrix_transpose<F: Clone>(mat: Matrix<F>) -> Matrix<F> {
+pub(crate) fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
     let mut trans = Vec::with_capacity(mat[0].len());
     for i in 0..mat[0].len() {
         trans.push(Vec::with_capacity(mat.len()));
@@ -528,7 +528,20 @@ fn matrix_transpose<F: Clone>(mat: Matrix<F>) -> Matrix<F> {
     trans
 }
 
-
+pub(crate) fn matrix_add<F: Add<Output = F> + Clone>(lhs: &Matrix<F>, rhs: &Matrix<F>) -> Matrix<F> {
+    assert_eq!(lhs.len(), rhs.len());
+    assert_eq!(lhs[0].len(), rhs[0].len());
+    let m = lhs.len();
+    let n = lhs[0].len();
+    let mut add = Vec::with_capacity(m);
+    for i in 0..m {
+        add.push(Vec::with_capacity(n));
+        for j in 0..n {
+            add[i].push(lhs[i][j].clone() + rhs[i][j].clone());
+        }
+    }
+    add
+}
 
 #[cfg(test)]
 mod tests {
@@ -873,7 +886,7 @@ mod tests {
             vec![field_new!(Fr, "2")],
             vec![field_new!(Fr, "3")]
         ];
-        let res: Matrix<Fr> = matrix_transpose::<Fr>(mat);
+        let res: Matrix<Fr> = matrix_transpose::<Fr>(&mat);
 
         assert_eq!(res.len(), 3);
         for i in 0..res.len() {
@@ -901,7 +914,7 @@ mod tests {
             vec![field_new!(Fr, "2"), field_new!(Fr, "5"), field_new!(Fr, "8")],
             vec![field_new!(Fr, "3"), field_new!(Fr, "6"), field_new!(Fr, "9")]
         ];
-        let res: Matrix<Fr> = matrix_transpose::<Fr>(mat);
+        let res: Matrix<Fr> = matrix_transpose::<Fr>(&mat);
 
         assert_eq!(res.len(), 3);
         for i in 0..res.len() {
@@ -909,6 +922,63 @@ mod tests {
         }
 
         assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_matrix_add() {
+
+        type Fr = <F as PairingEngine>::Fr;
+
+        // 3 x 3 matrices
+        let one = Fr::one();
+        let lhs: Matrix<Fr> = vec![
+            vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
+            vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")],
+            vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9")]
+        ];
+        let rhs: Matrix<Fr> = vec![
+            vec![field_new!(Fr, "10"), field_new!(Fr, "11"), field_new!(Fr, "12")],
+            vec![field_new!(Fr, "13"), field_new!(Fr, "14"), field_new!(Fr, "15")],
+            vec![field_new!(Fr, "16"), field_new!(Fr, "17"), field_new!(Fr, "18")]
+        ];
+
+        let exp: Matrix<Fr> = vec![
+            vec![field_new!(Fr, "11"), field_new!(Fr, "13"), field_new!(Fr, "15")],
+            vec![field_new!(Fr, "17"), field_new!(Fr, "19"), field_new!(Fr, "21")],
+            vec![field_new!(Fr, "23"), field_new!(Fr, "25"), field_new!(Fr, "27")]
+        ];
+        let res: Matrix<Fr> = matrix_add::<Fr>(&lhs, &rhs);
+
+        assert_eq!(res.len(), 3);
+        for i in 0..res.len() {
+            assert_eq!(res[i].len(), 3);
+        }
+
+        assert_eq!(exp, res);
+    }
+
+
+    #[test]
+    fn test_matrix_add_commutativity() {
+
+        type Fr = <F as PairingEngine>::Fr;
+
+        // 3 x 3 matrices
+        let one = Fr::one();
+        let lhs: Matrix<Fr> = vec![
+            vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
+            vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")],
+            vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9")]
+        ];
+        let rhs: Matrix<Fr> = vec![
+            vec![field_new!(Fr, "10"), field_new!(Fr, "11"), field_new!(Fr, "12")],
+            vec![field_new!(Fr, "13"), field_new!(Fr, "14"), field_new!(Fr, "15")],
+            vec![field_new!(Fr, "16"), field_new!(Fr, "17"), field_new!(Fr, "18")]
+        ];
+        let lhres: Matrix<Fr> = matrix_add::<Fr>(&lhs, &rhs);
+        let hlres: Matrix<Fr> = matrix_add::<Fr>(&rhs, &lhs);
+
+        assert_eq!(lhres, hlres);
     }
 
     #[test]
