@@ -59,7 +59,7 @@ pub struct ComT<E: PairingEngine>(pub E::Fqk, pub E::Fqk, pub E::Fqk, pub E::Fqk
 
 // TODO: Refactor matrix code to use Matrix trait (cleaner?)
 // Would have to implement Matrix as a struct instead of pub type ... Vec<...> because "impl X for
-// Vec<...> doesn't work
+// Vec<...> doesn't work; Vec defined outside of crate
 /*
 pub trait Matrix<Other = Self>:
     Eq
@@ -75,7 +75,7 @@ pub trait Matrix<Other = Self>:
 }
 */
 
-/// Sparse representation of matrices (with entries being scalar or GT)
+/// Sparse representation of matrices
 pub type Matrix<F> = Vec<Vec<F>>;
 
 
@@ -288,6 +288,7 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
 
 // TODO: Clean up the option to specify parallel computation
 // TODO: Refactor to reuse code for both scalars and group elements, if possible
+// Matrix multiplication algorithm based on source: https://boydjohnson.dev/blog/concurrency-matrix-multiplication/
 
 /// Compute row of matrix corresponding to multiplication of scalar matrices
 fn field_matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize, is_parallel: bool) -> Vec<F> {
@@ -511,6 +512,24 @@ pub(crate) fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Mat
     }
 }
 
+/// Compute out-of-place transpose of a matrix
+fn matrix_transpose<F: Clone>(mat: Matrix<F>) -> Matrix<F> {
+    let mut trans = Vec::with_capacity(mat[0].len());
+    for i in 0..mat[0].len() {
+        trans.push(Vec::with_capacity(mat.len()));
+    }
+
+    for row in mat {
+        for i in 0..row.len() {
+            // Push rows onto columns
+            trans[i].push(row[i].clone());
+        }
+    }
+    trans
+}
+
+
+
 #[cfg(test)]
 mod tests {
 
@@ -688,10 +707,6 @@ mod tests {
         assert_eq!(exp, res);
     }
 
-
-
-
-
     #[test]
     fn test_scalar_matrix_mul_rayon() {
         
@@ -842,6 +857,60 @@ mod tests {
    
         assert_eq!(exp, res);
     }
+
+    #[test]
+    fn test_matrix_transpose_vec() {
+
+        type Fr = <F as PairingEngine>::Fr;
+
+        // 1 x 3 (row) vector
+        let one = Fr::one();
+        let mat: Matrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
+
+        // 3 x 1 transpose (column) vector
+        let exp: Matrix<Fr> = vec![
+            vec![one],
+            vec![field_new!(Fr, "2")],
+            vec![field_new!(Fr, "3")]
+        ];
+        let res: Matrix<Fr> = matrix_transpose::<Fr>(mat);
+
+        assert_eq!(res.len(), 3);
+        for i in 0..res.len() {
+            assert_eq!(res[i].len(), 1);
+        }
+
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_matrix_transpose() {
+
+        type Fr = <F as PairingEngine>::Fr;
+
+        // 3 x 3 matrix
+        let one = Fr::one();
+        let mat: Matrix<Fr> = vec![
+            vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
+            vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")],
+            vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9")]
+        ];
+        // 3 x 3 transpose matrix
+        let exp: Matrix<Fr> = vec![
+            vec![one, field_new!(Fr, "4"), field_new!(Fr, "7")],
+            vec![field_new!(Fr, "2"), field_new!(Fr, "5"), field_new!(Fr, "8")],
+            vec![field_new!(Fr, "3"), field_new!(Fr, "6"), field_new!(Fr, "9")]
+        ];
+        let res: Matrix<Fr> = matrix_transpose::<Fr>(mat);
+
+        assert_eq!(res.len(), 3);
+        for i in 0..res.len() {
+            assert_eq!(res[i].len(), 3);
+        }
+
+        assert_eq!(exp, res);
+    }
+
     #[test]
     fn test_into_vec_and_matrix() {
 
@@ -862,7 +931,6 @@ mod tests {
         // BT can be represented as a 2 x 2 matrix
         assert_eq!(bt.as_matrix(), vec![vec![bt.0, bt.1], vec![bt.2, bt.3]]);
     }
-
 
     #[test]
     fn test_from_vec_and_matrix() {
