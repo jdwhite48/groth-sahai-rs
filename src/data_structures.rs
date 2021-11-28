@@ -10,13 +10,17 @@ use crate::generator::CRS;
 
 /// B1,B2,BT forms a bilinear group for GS commitments
 
-// TODO: Check sources to see whether commutativity holds with scalar linear maps
+// TODO: Clean up AddAssign to use Add operator for B1/B2/BT (I couldn't get it to work without
+// moving self...)
 pub trait B1<E: PairingEngine>: Eq
     + Clone
     + Debug
     + Zero
     + Add<Self, Output = Self>
-//    + AddAssign<Self>
+    + AddAssign<Self>
+    + Sub<Self, Output = Self>
+    + SubAssign<Self>
+    + Neg<Output = Self>
     + From<Matrix<E::G1Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G1Affine>;
@@ -29,7 +33,10 @@ pub trait B2<E: PairingEngine>: Eq
     + Debug
     + Zero
     + Add<Self, Output = Self>
-//    + AddAssign<Self>
+    + AddAssign<Self>
+    + Sub<Self, Output = Self>
+    + SubAssign<Self>
+    + Neg<Output = Self>
     + From<Matrix<E::G2Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G2Affine>;
@@ -45,7 +52,10 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     + Debug
     + Zero
     + Add<Self, Output = Self>
-//    + AddAssign<Self>
+    + AddAssign<Self>
+    + Sub<Self, Output = Self>
+    + SubAssign<Self>
+    + Neg<Output = Self>
     + From<Matrix<E::Fqk>>
 {
     fn as_matrix(&self) -> Matrix<E::Fqk>;
@@ -143,7 +153,16 @@ impl<E: PairingEngine> Zero for Com1<E> {
         *self == Self::zero()
     }
 }
+impl<E: PairingEngine> AddAssign<Com1<E>> for Com1<E> {
 
+    #[inline]
+    fn add_assign(&mut self, other: Self) {
+        *self = Self (
+            self.0 + other.0,
+            self.1 + other.1
+        );
+    }
+}
 impl<E: PairingEngine> From<Matrix<E::G1Affine>> for Com1<E> {
     fn from(mat: Matrix<E::G1Affine>) -> Self {
 
@@ -154,6 +173,38 @@ impl<E: PairingEngine> From<Matrix<E::G1Affine>> for Com1<E> {
             mat[0][0],
             mat[1][0]
         )
+    }
+}
+impl<E: PairingEngine> Neg for Com1<E> {
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Self (
+            -self.0,
+            -self.1
+        )
+    }
+}
+impl<E: PairingEngine> Sub<Com1<E>> for Com1<E> {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, other: Self) -> Self {
+        Self (
+            self.0 + -other.0,
+            self.1 + -other.1
+        )
+    }
+}
+impl<E: PairingEngine> SubAssign<Com1<E>> for Com1<E> {
+
+    #[inline]
+    fn sub_assign(&mut self, other: Self) {
+        *self = Self (
+            self.0 + -other.0,
+            self.1 + -other.1
+        );
     }
 }
 
@@ -216,7 +267,48 @@ impl<E: PairingEngine> Zero for Com2<E> {
         *self == Self::zero()
     }
 }
+impl<E: PairingEngine> AddAssign<Com2<E>> for Com2<E> {
 
+    #[inline]
+    fn add_assign(&mut self, other: Self) {
+        *self = Self (
+            self.0 + other.0,
+            self.1 + other.1
+        );
+    }
+}
+impl<E: PairingEngine> Neg for Com2<E> {
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Self (
+            -self.0,
+            -self.1
+        )
+    }
+}
+impl<E: PairingEngine> Sub<Com2<E>> for Com2<E> {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, other: Self) -> Self {
+        Self (
+            self.0 + -other.0,
+            self.1 + -other.1
+        )
+    }
+}
+impl<E: PairingEngine> SubAssign<Com2<E>> for Com2<E> {
+
+    #[inline]
+    fn sub_assign(&mut self, other: Self) {
+        *self = Self (
+            self.0 + -other.0,
+            self.1 + -other.1
+        );
+    }
+}
 impl<E: PairingEngine> From<Matrix<E::G2Affine>> for Com2<E> {
     fn from(mat: Matrix<E::G2Affine>) -> Self {
         assert_eq!(mat.len(), 2);
@@ -289,6 +381,56 @@ impl<E: PairingEngine> Zero for ComT<E> {
     #[inline]
     fn is_zero(&self) -> bool {
         *self == Self::zero()
+    }
+}
+impl<E: PairingEngine> AddAssign<ComT<E>> for ComT<E> {
+
+    #[inline]
+    fn add_assign(&mut self, other: Self) {
+        *self = Self (
+            self.0 * other.0,
+            self.1 * other.1,
+            self.2 * other.2,
+            self.3 * other.3
+        );
+    }
+}
+impl<E: PairingEngine> Neg for ComT<E> {
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Self (
+            -self.0,
+            -self.1,
+            -self.2,
+            -self.3
+        )
+    }
+}
+impl<E: PairingEngine> Sub<ComT<E>> for ComT<E> {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, other: Self) -> Self {
+        Self (
+            self.0 * -other.0,
+            self.1 * -other.1,
+            self.2 * -other.2,
+            self.3 * -other.3
+        )
+    }
+}
+impl<E: PairingEngine> SubAssign<ComT<E>> for ComT<E> {
+
+    #[inline]
+    fn sub_assign(&mut self, other: Self) {
+        *self = Self (
+            self.0 * -other.0,
+            self.1 * -other.1,
+            self.2 * -other.2,
+            self.3 * -other.3
+        );
     }
 }
 impl<E: PairingEngine> From<Matrix<E::Fqk>> for ComT<E> {
