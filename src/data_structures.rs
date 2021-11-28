@@ -541,6 +541,34 @@ pub(crate) fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Mat
     }
 }
 
+/// Computes multiplication of scalar with a field matrix (scalar/Fr or GT/Fqk)
+pub(crate) fn field_matrix_scalar_mul<F: Field>(scalar: &F, mat: &Matrix<F>) -> Matrix<F> {
+    let m = mat.len();
+    let n = mat[0].len();
+    let mut smul = Vec::with_capacity(m);
+    for i in 0..m {
+        smul.push(Vec::with_capacity(n));
+        for j in 0..n {
+            smul[i].push( *scalar * mat[i][j] );
+        }
+    }
+    smul
+}
+
+/// Computes multiplication of scalar with a group matrix (G1 or G2)
+pub(crate) fn group_matrix_scalar_mul<E: PairingEngine, G: AffineCurve>(scalar: &G::ScalarField, mat: &Matrix<G>) -> Matrix<G> {
+    let m = mat.len();
+    let n = mat[0].len();
+    let mut smul = Vec::with_capacity(m);
+    for i in 0..m {
+        smul.push(Vec::with_capacity(n));
+        for j in 0..n {
+            smul[i].push( mat[i][j].mul(*scalar).into_affine() );
+        }
+    }
+    smul
+}
+
 /// Computes out-of-place transpose of a matrix
 pub(crate) fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
     let mut trans = Vec::with_capacity(mat[0].len());
@@ -948,6 +976,62 @@ mod tests {
         for i in 0..res.len() {
             assert_eq!(res[i].len(), 3);
         }
+
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_scalar_matrix_scalar_mul() {
+
+        type Fr = <F as PairingEngine>::Fr;
+
+        // 3 x 3 matrices
+        let one = Fr::one();
+        let scalar: Fr = field_new!(Fr, "3");
+        let mat: Matrix<Fr> = vec![
+            vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
+            vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")],
+            vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9")]
+        ];
+
+        let exp: Matrix<Fr> = vec![
+            vec![field_new!(Fr, "3"), field_new!(Fr, "6"), field_new!(Fr, "9")],
+            vec![field_new!(Fr, "12"), field_new!(Fr, "15"), field_new!(Fr, "18")],
+            vec![field_new!(Fr, "21"), field_new!(Fr, "24"), field_new!(Fr, "27")]
+        ];
+        let res: Matrix<Fr> = field_matrix_scalar_mul::<Fr>(&scalar, &mat);
+
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_group_matrix_scalar_mul() {
+
+        type Fr = <F as PairingEngine>::Fr;
+        type G1Affine = <F as PairingEngine>::G1Affine;
+
+        let scalar: Fr = field_new!(Fr, "3");
+
+        // 3 x 3 matrix {{1,2,3}, {4,5,6}, {7,8,9}}
+        let mut rng = test_rng();
+        let g1gen = G1Projective::rand(&mut rng).into_affine();
+        let mut mat: Matrix<G1Affine> = Vec::with_capacity(3);
+        for i in 0..3 {
+            mat.push(Vec::with_capacity(3));
+            for j in 0..3 {
+
+                mat[i].push(g1gen.mul(field_new!(Fr,"3")).into_affine());
+            }
+        }
+
+        let mut exp: Matrix<G1Affine> = Vec::with_capacity(3);
+        for i in 0..3 {
+            exp.push(Vec::with_capacity(3));
+            for j in 0..3 {
+                exp[i].push(g1gen.mul(field_new!(Fr,"9")).into_affine());
+            }
+        }
+        let res: Matrix<G1Affine> = group_matrix_scalar_mul::<F,G1Affine>(&scalar, &mat);
 
         assert_eq!(exp, res);
     }
