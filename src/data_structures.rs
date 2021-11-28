@@ -589,7 +589,8 @@ fn group_right_matrix_mul_row<E: PairingEngine, G: AffineCurve>(row: &[G::Scalar
 }
 
 /// Matrix multiplication of field matrices (scalar/Fr or GT/Fqk)
-pub(crate) fn field_matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_parallel: bool) -> Matrix<F> {
+// TODO: Change all pub matrix functions to pub(crate)? (or else move benches inward)
+pub fn field_matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_parallel: bool) -> Matrix<F> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
     }
@@ -631,7 +632,7 @@ pub(crate) fn field_matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_pa
 }
 
 /// Computes multiplication of group matrix (G1 or G2) with scalar matrix
-pub(crate) fn group_left_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matrix<G>, rhs: &Matrix<G::ScalarField>, is_parallel: bool) -> Matrix<G> {
+pub fn group_left_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matrix<G>, rhs: &Matrix<G::ScalarField>, is_parallel: bool) -> Matrix<G> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
     }
@@ -674,7 +675,7 @@ pub(crate) fn group_left_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matr
 
 
 /// Computes multiplication of scalar matrix with group matrix (G1 or G2)
-pub(crate) fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matrix<G::ScalarField>, rhs: &Matrix<G>, is_parallel: bool) -> Matrix<G> {
+pub fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matrix<G::ScalarField>, rhs: &Matrix<G>, is_parallel: bool) -> Matrix<G> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
     }
@@ -716,7 +717,7 @@ pub(crate) fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Mat
 }
 
 /// Computes multiplication of scalar with a field matrix (scalar/Fr or GT/Fqk)
-pub(crate) fn field_matrix_scalar_mul<F: Field>(scalar: &F, mat: &Matrix<F>) -> Matrix<F> {
+pub fn field_matrix_scalar_mul<F: Field>(scalar: &F, mat: &Matrix<F>) -> Matrix<F> {
     let m = mat.len();
     let n = mat[0].len();
     let mut smul = Vec::with_capacity(m);
@@ -730,7 +731,7 @@ pub(crate) fn field_matrix_scalar_mul<F: Field>(scalar: &F, mat: &Matrix<F>) -> 
 }
 
 /// Computes multiplication of scalar with a group matrix (G1 or G2)
-pub(crate) fn group_matrix_scalar_mul<E: PairingEngine, G: AffineCurve>(scalar: &G::ScalarField, mat: &Matrix<G>) -> Matrix<G> {
+pub fn group_matrix_scalar_mul<E: PairingEngine, G: AffineCurve>(scalar: &G::ScalarField, mat: &Matrix<G>) -> Matrix<G> {
     let m = mat.len();
     let n = mat[0].len();
     let mut smul = Vec::with_capacity(m);
@@ -744,7 +745,7 @@ pub(crate) fn group_matrix_scalar_mul<E: PairingEngine, G: AffineCurve>(scalar: 
 }
 
 /// Computes out-of-place transpose of a matrix
-pub(crate) fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
+pub fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
     let mut trans = Vec::with_capacity(mat[0].len());
     for _ in 0..mat[0].len() {
         trans.push(Vec::with_capacity(mat.len()));
@@ -760,7 +761,7 @@ pub(crate) fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
 }
 
 /// Computes matrix addition
-pub(crate) fn matrix_add<F: Add<Output = F> + Clone>(lhs: &Matrix<F>, rhs: &Matrix<F>) -> Matrix<F> {
+pub fn matrix_add<F: Add<Output = F> + Clone>(lhs: &Matrix<F>, rhs: &Matrix<F>) -> Matrix<F> {
     assert_eq!(lhs.len(), rhs.len());
     assert_eq!(lhs[0].len(), rhs[0].len());
     let m = lhs.len();
