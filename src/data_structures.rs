@@ -1,4 +1,4 @@
-use ark_ec::{PairingEngine};
+use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
 use ark_ff::{Zero, One, Field};
 use ark_std::{
     fmt::Debug,
@@ -57,7 +57,7 @@ pub struct Com2<E: PairingEngine>(pub E::G2Affine, pub E::G2Affine);
 pub struct ComT<E: PairingEngine>(pub E::Fqk, pub E::Fqk, pub E::Fqk, pub E::Fqk);
 
 
-// TODO: Refactor code to use Matrix trait (cleaner?)
+// TODO: Refactor matrix code to use Matrix trait (cleaner?)
 // Would have to implement Matrix as a struct instead of pub type ... Vec<...> because "impl X for
 // Vec<...> doesn't work
 /*
@@ -286,9 +286,11 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     }
 }
 
+// TODO: Clean up the option to specify parallel computation
+// TODO: Refactor to reuse code for both scalars and group elements, if possible
 
 /// Compute row of matrix corresponding to multiplication of scalar matrices
-fn matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize, is_parallel: bool) -> Vec<F> {
+fn field_matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize, is_parallel: bool) -> Vec<F> {
     
     // Assuming every column in b has the same length
     let rhs_col_dim = rhs[0].len();
@@ -318,10 +320,114 @@ fn matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize, is_parallel:
     }
 }
 
+/// Compute row of matrix corresponding to multiplication of group matrix (G1 or G2) with scalar
+/// matrix
+fn group_left_matrix_mul_row<E: PairingEngine, G: AffineCurve>(row: &[G], rhs: &Matrix<G::ScalarField>, dim: usize, is_parallel: bool) -> Vec<G> {
 
-// TODO: Change to pub(crate)?
-/// Matrix multiplication of field elements (scalar/Fr or GT/Fqk)
-pub fn matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_parallel: bool) -> Matrix<F> {
+    // Assuming every column in b has the same length
+    let rhs_col_dim = rhs[0].len();
+
+    if is_parallel {
+        let mut cols = (0..rhs_col_dim)
+            .into_par_iter()
+            .map( |j| {
+                (j, (0..dim).map( |k| row[k].mul(rhs[k][j]).into_affine() ).sum())
+            })
+            .collect::<Vec<(usize, G)>>();
+
+        // After computing concurrently, sort by index
+        cols.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+        // Strip off index and return Vec<F>
+        cols.into_iter()
+            .map( |(_, elem)| elem)
+            .collect()
+    }
+    else {
+        (0..rhs_col_dim)
+            .map( |j| {
+                (0..dim).map( |k| row[k].mul(rhs[k][j]).into_affine() ).sum()
+            })
+            .collect::<Vec<G>>()
+    }
+}
+
+/// Compute row of matrix corresponding to multiplication of scalar matrix with group matrix (G1 or
+/// G2)
+fn group_right_matrix_mul_row<E: PairingEngine, G: AffineCurve>(row: &[G::ScalarField], rhs: &Matrix<G>, dim: usize, is_parallel: bool) -> Vec<G> {
+
+    // Assuming every column in b has the same length
+    let rhs_col_dim = rhs[0].len();
+
+    if is_parallel {
+        let mut cols = (0..rhs_col_dim)
+            .into_par_iter()
+            .map( |j| {
+                (j, (0..dim).map( |k| rhs[k][j].mul(row[k]).into_affine() ).sum())
+            })
+            .collect::<Vec<(usize, G)>>();
+
+        // After computing concurrently, sort by index
+        cols.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+        // Strip off index and return Vec<F>
+        cols.into_iter()
+            .map( |(_, elem)| elem)
+            .collect()
+    }
+    else {
+        (0..rhs_col_dim)
+            .map( |j| {
+                (0..dim).map( |k| rhs[k][j].mul(row[k]).into_affine() ).sum()
+            })
+            .collect::<Vec<G>>()
+    }
+}
+
+/// Matrix multiplication of field matrices (scalar/Fr or GT/Fqk)
+pub(crate) fn field_matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_parallel: bool) -> Matrix<F> {
+    if lhs.len() == 0 || lhs[0].len() == 0 {
+        return vec![];
+    }
+    if rhs.len() == 0 || rhs[0].len() == 0 {
+        return vec![];
+    }
+
+    // Assuming every row in a and column in b has the same length
+    assert_eq!(lhs[0].len(), rhs.len());
+    let row_dim = lhs.len();
+
+    if is_parallel {
+        let mut rows = (0..row_dim)
+            .into_par_iter()
+            .map( |i| {
+                let row = &lhs[i];
+                let dim = rhs.len();
+                (i, field_matrix_mul_row::<F>(row, rhs, dim, is_parallel))
+            })
+            .collect::<Vec<(usize, Vec<F>)>>();
+
+        // After computing concurrently, sort by index
+        rows.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+        // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
+        rows.into_iter()
+            .map( |(_, row)| row)
+            .collect()
+    }
+    else {
+        (0..row_dim)
+            .map( |i| {
+                let row = &lhs[i];
+                let dim = rhs.len();
+                field_matrix_mul_row::<F>(row, rhs, dim, is_parallel)
+            })
+            .collect::<Vec<Vec<F>>>()
+    }
+}
+
+/// Matrix multiplication of group matrix (G1 or G2) with scalar matrix
+pub(crate) fn group_left_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matrix<G>, rhs: &Matrix<G::ScalarField>, is_parallel: bool) -> Matrix<G> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
     }
@@ -339,12 +445,12 @@ pub fn matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_parallel: bool)
             .map( |i| {
                 let row = &lhs[i];
                 let dim = rhs.len();
-                (i, matrix_mul_row::<F>(row, rhs, dim, is_parallel))
+                (i, group_left_matrix_mul_row::<E,G>(row, rhs, dim, is_parallel))
             })
-            .collect::<Vec<(usize, Vec<F>)>>();
+            .collect::<Vec<(usize, Vec<G>)>>();
 
         // After computing concurrently, sort by index
-    //    rows.par_sort_by(|left, right| left.0.cmp(&right.0));
+        rows.par_sort_by(|left, right| left.0.cmp(&right.0));
         
         // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
         rows.into_iter()
@@ -356,9 +462,52 @@ pub fn matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_parallel: bool)
             .map( |i| {
                 let row = &lhs[i];
                 let dim = rhs.len();
-                matrix_mul_row::<F>(row, rhs, dim, is_parallel)
+                group_left_matrix_mul_row::<E,G>(row, rhs, dim, is_parallel)
             })
-            .collect::<Vec<Vec<F>>>()
+            .collect::<Vec<Vec<G>>>()
+    }
+}
+
+
+/// Matrix multiplication of scalar matrix with group matrix (G1 or G2)
+pub(crate) fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matrix<G::ScalarField>, rhs: &Matrix<G>, is_parallel: bool) -> Matrix<G> {
+    if lhs.len() == 0 || lhs[0].len() == 0 {
+        return vec![];
+    }
+    if rhs.len() == 0 || rhs[0].len() == 0 {
+        return vec![];
+    }
+
+    // Assuming every row in a and column in b has the same length
+    assert_eq!(lhs[0].len(), rhs.len());
+    let row_dim = lhs.len();
+
+    if is_parallel { 
+        let mut rows = (0..row_dim)
+            .into_par_iter()
+            .map( |i| {
+                let row = &lhs[i];
+                let dim = rhs.len();
+                (i, group_right_matrix_mul_row::<E,G>(row, rhs, dim, is_parallel))
+            })
+            .collect::<Vec<(usize, Vec<G>)>>();
+
+        // After computing concurrently, sort by index
+        rows.par_sort_by(|left, right| left.0.cmp(&right.0));
+        
+        // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
+        rows.into_iter()
+            .map( |(_, row)| row)
+            .collect()
+    }
+    else {
+        (0..row_dim)
+            .map( |i| {
+                let row = &lhs[i];
+                let dim = rhs.len();
+                group_right_matrix_mul_row::<E,G>(row, rhs, dim, is_parallel)
+            })
+            .collect::<Vec<Vec<G>>>()
     }
 }
 
@@ -475,14 +624,13 @@ mod tests {
             vec![field_new!(Fr, "6")]
         ];
         let exp: Vec<Fr> = vec![field_new!(Fr, "32")];
-        let res: Vec<Fr> = matrix_mul_row::<Fr>(&lhs, &rhs, 3, false);
+        let res: Vec<Fr> = field_matrix_mul_row::<Fr>(&lhs, &rhs, 3, false);
 
         // 1 x 1 resulting matrix
         assert_eq!(res.len(), 1);
    
         assert_eq!(exp, res);
     }
-
 
     #[test]
     fn test_scalar_matrix_mul_entry() {
@@ -499,7 +647,7 @@ mod tests {
             vec![field_new!(Fr, "6")]
         ];
         let exp: Matrix<Fr> = vec![vec![field_new!(Fr, "32")]];
-        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs, false);
+        let res: Matrix<Fr> = field_matrix_mul::<Fr>(&lhs, &rhs, false);
 
         // 1 x 1 resulting matrix
         assert_eq!(res.len(), 1);
@@ -530,7 +678,7 @@ mod tests {
             vec![field_new!(Fr, "74"), field_new!(Fr, "80"), field_new!(Fr, "86"), field_new!(Fr, "92")],
             vec![field_new!(Fr, "173"), field_new!(Fr, "188"), field_new!(Fr, "203"), field_new!(Fr, "218")]
         ];
-        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs, false);
+        let res: Matrix<Fr> = field_matrix_mul::<Fr>(&lhs, &rhs, false);
 
         // 2 x 4 resulting matrix
         assert_eq!(res.len(), 2);
@@ -565,7 +713,7 @@ mod tests {
             vec![field_new!(Fr, "74"), field_new!(Fr, "80"), field_new!(Fr, "86"), field_new!(Fr, "92")],
             vec![field_new!(Fr, "173"), field_new!(Fr, "188"), field_new!(Fr, "203"), field_new!(Fr, "218")]
         ];
-        let res: Matrix<Fr> = matrix_mul::<Fr>(&lhs, &rhs, true);
+        let res: Matrix<Fr> = field_matrix_mul::<Fr>(&lhs, &rhs, true);
 
         // 2 x 4 resulting matrix
         assert_eq!(res.len(), 2);
@@ -575,6 +723,125 @@ mod tests {
         assert_eq!(exp, res);
     }
 
+
+    #[test]
+    fn test_group_left_matrix_mul_row() {
+
+        type Fr = <F as PairingEngine>::Fr;
+        type G1Affine = <F as PairingEngine>::G1Affine;
+        type G1Projective = <F as PairingEngine>::G1Projective;
+
+        // 1 x 3 (row) vector
+        let one = Fr::one();
+        let mut rng = test_rng();
+        let g1gen = G1Projective::rand(&mut rng).into_affine();
+        let lhs: Vec<G1Affine> = vec![
+            g1gen,
+            g1gen.mul(field_new!(Fr, "2")).into_affine(),
+            g1gen.mul(field_new!(Fr, "3")).into_affine()
+        ];
+        // 3 x 1 (column) vector
+        let rhs: Matrix<Fr> = vec![
+            vec![field_new!(Fr, "4")],
+            vec![field_new!(Fr, "5")],
+            vec![field_new!(Fr, "6")]
+        ];
+        let exp: Vec<G1Affine> = vec![g1gen.mul(field_new!(Fr, "32")).into_affine()];
+        let res: Vec<G1Affine> = group_left_matrix_mul_row::<F,G1Affine>(&lhs, &rhs, 3, false);
+
+        // 1 x 1 resulting matrix
+        assert_eq!(res.len(), 1);
+   
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_group_left_matrix_mul_entry() {
+        
+        type Fr = <F as PairingEngine>::Fr;
+        type G1Affine = <F as PairingEngine>::G1Affine;
+        type G1Projective = <F as PairingEngine>::G1Projective;
+
+        // 1 x 3 (row) vector
+        let one = Fr::one();
+        let mut rng = test_rng();
+        let g1gen = G1Projective::rand(&mut rng).into_affine();
+        let lhs: Matrix<G1Affine> = vec![vec![
+            g1gen,
+            g1gen.mul(field_new!(Fr, "2")).into_affine(),
+            g1gen.mul(field_new!(Fr, "3")).into_affine()
+        ]];
+        // 3 x 1 (column) vector
+        let rhs: Matrix<Fr> = vec![
+            vec![field_new!(Fr, "4")],
+            vec![field_new!(Fr, "5")],
+            vec![field_new!(Fr, "6")]
+        ];
+        let exp: Matrix<G1Affine> = vec![vec![g1gen.mul(field_new!(Fr, "32")).into_affine()]];
+        let res: Matrix<G1Affine> = group_left_matrix_mul::<F,G1Affine>(&lhs, &rhs, false);
+        
+        // 1 x 1 resulting matrix
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].len(), 1);
+   
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_group_right_matrix_mul_row() {
+
+        type Fr = <F as PairingEngine>::Fr;
+        type G1Affine = <F as PairingEngine>::G1Affine;
+        type G1Projective = <F as PairingEngine>::G1Projective;
+
+        // 1 x 3 (row) vector
+        let one = Fr::one();
+        let mut rng = test_rng();
+        let g1gen = G1Projective::rand(&mut rng).into_affine();
+        let lhs: Vec<Fr> = vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")];
+        // 3 x 1 (column) vector
+        let rhs: Matrix<G1Affine> = vec![
+            vec![g1gen.mul(field_new!(Fr, "4")).into_affine()],
+            vec![g1gen.mul(field_new!(Fr, "5")).into_affine()],
+            vec![g1gen.mul(field_new!(Fr, "6")).into_affine()]
+        ];
+        let exp: Vec<G1Affine> = vec![g1gen.mul(field_new!(Fr, "32")).into_affine()];
+        let res: Vec<G1Affine> = group_right_matrix_mul_row::<F,G1Affine>(&lhs, &rhs, 3, false);
+
+        // 1 x 1 resulting matrix
+        assert_eq!(res.len(), 1);
+   
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_group_right_matrix_mul_entry() {
+        
+        type Fr = <F as PairingEngine>::Fr;
+        type G1Affine = <F as PairingEngine>::G1Affine;
+        type G1Projective = <F as PairingEngine>::G1Projective;
+
+        // 1 x 3 (row) vector
+        let one = Fr::one();
+        let mut rng = test_rng();
+        let g1gen = G1Projective::rand(&mut rng).into_affine();
+        
+        let lhs: Matrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
+        // 3 x 1 (column) vector
+        let rhs: Matrix<G1Affine> = vec![
+            vec![g1gen.mul(field_new!(Fr, "4")).into_affine()],
+            vec![g1gen.mul(field_new!(Fr, "5")).into_affine()],
+            vec![g1gen.mul(field_new!(Fr, "6")).into_affine()]
+        ];
+        let exp: Matrix<G1Affine> = vec![vec![g1gen.mul(field_new!(Fr, "32")).into_affine()]];
+        let res: Matrix<G1Affine> = group_right_matrix_mul::<F,G1Affine>(&lhs, &rhs, false);
+        
+        // 1 x 1 resulting matrix
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].len(), 1);
+   
+        assert_eq!(exp, res);
+    }
     #[test]
     fn test_into_vec_and_matrix() {
 
