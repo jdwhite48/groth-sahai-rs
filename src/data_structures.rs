@@ -8,7 +8,6 @@ use rayon::prelude::*;
 
 /// B1,B2,BT forms a bilinear group for GS commitments
 
-// TODO: implement AddAssign/MulAssign
 // TODO: Implement scalar linear maps for B1, B2
 pub trait B1<E: PairingEngine>: Eq
     + Clone
@@ -19,6 +18,7 @@ pub trait B1<E: PairingEngine>: Eq
     + From<Matrix<E::G1Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G1Affine>;
+    fn as_vec(&self) -> Vec<E::G1Affine>;
     fn linear_map(g1: E::G1Affine) -> Self;
 }
 pub trait B2<E: PairingEngine>: Eq
@@ -30,6 +30,7 @@ pub trait B2<E: PairingEngine>: Eq
     + From<Matrix<E::G2Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G2Affine>;
+    fn as_vec(&self) -> Vec<E::G2Affine>;
     fn linear_map(g2: E::G2Affine) -> Self;
 }
 pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
@@ -41,9 +42,9 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
 //    + AddAssign<Self>
     + From<Matrix<E::Fqk>>
 {
-    fn pairing(x: C1, y: C2) -> Self;
     fn as_matrix(&self) -> Matrix<E::Fqk>;
     fn linear_map(gt: E::Fqk) -> Self;
+    fn pairing(x: C1, y: C2) -> Self;
 }
 
 // SXDH instantiation's bilinear group for commitments
@@ -57,7 +58,7 @@ pub struct Com2<E: PairingEngine>(pub E::G2Affine, pub E::G2Affine);
 pub struct ComT<E: PairingEngine>(pub E::Fqk, pub E::Fqk, pub E::Fqk, pub E::Fqk);
 
 
-// TODO: Refactor matrix code to use Matrix trait (cleaner?)
+// TODO: Refactor matrix code to use Matrix trait (cleaner)
 // Would have to implement Matrix as a struct instead of pub type ... Vec<...> because "impl X for
 // Vec<...> doesn't work; Vec defined outside of crate
 /*
@@ -97,14 +98,18 @@ impl_Com!(for 1, 2);
 
 // Com1 implements B1
 impl<E: PairingEngine> PartialEq for Com1<E> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
     }
 }
 impl<E: PairingEngine> Eq for Com1<E> {}
+
+/// Addition for B1 is entry-wise addition of eleents in G1
 impl<E: PairingEngine> Add<Com1<E>> for Com1<E> {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self (
             self.0 + other.0,
@@ -113,6 +118,7 @@ impl<E: PairingEngine> Add<Com1<E>> for Com1<E> {
     }
 }
 impl<E: PairingEngine> Zero for Com1<E> {
+    #[inline]
     fn zero() -> Self {
         Self (
             E::G1Affine::zero(),
@@ -120,6 +126,7 @@ impl<E: PairingEngine> Zero for Com1<E> {
         )
     }
 
+    #[inline]
     fn is_zero(&self) -> bool {
         *self == Self::zero()
     }
@@ -143,6 +150,11 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
         vec![ vec![self.0], vec![self.1] ]
     }
 
+    fn as_vec(&self) -> Vec<E::G1Affine> {
+        vec![ self.0, self.1 ]
+    }
+
+    #[inline]
     fn linear_map(g1: E::G1Affine) -> Self {
         Self (
             E::G1Affine::zero(),
@@ -154,14 +166,18 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
 
 // Com2 implements B2
 impl<E: PairingEngine> PartialEq for Com2<E> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
     }
 }
 impl<E: PairingEngine> Eq for Com2<E> {}
+
+/// Addition for B2 is entry-wise addition of elements in G2
 impl<E: PairingEngine> Add<Com2<E>> for Com2<E> {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self (
             self.0 + other.0,
@@ -170,6 +186,7 @@ impl<E: PairingEngine> Add<Com2<E>> for Com2<E> {
     }
 }
 impl<E: PairingEngine> Zero for Com2<E> {
+    #[inline]
     fn zero() -> Self {
         Self (
             E::G2Affine::zero(),
@@ -177,6 +194,7 @@ impl<E: PairingEngine> Zero for Com2<E> {
         )
     }
 
+    #[inline]
     fn is_zero(&self) -> bool {
         *self == Self::zero()
     }
@@ -199,6 +217,11 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
         vec![ vec![self.0], vec![self.1] ]
     }
 
+    fn as_vec(&self) -> Vec<E::G2Affine> {
+        vec![ self.0, self.1 ]
+    }
+
+    #[inline]
     fn linear_map(g2: E::G2Affine) -> Self {
         Self (
             E::G2Affine::zero(),
@@ -209,16 +232,18 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
 
 // ComT implements BT<B1, B2>
 impl<E: PairingEngine> PartialEq for ComT<E> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1 && self.2 == other.2 && self.3 == other.3
     }
 }
 impl<E: PairingEngine> Eq for ComT<E> {}
 
-/// Addition for BT is entry-wise multiplication
+/// Addition for BT is entry-wise multiplication of elements in GT
 impl<E: PairingEngine> Add<ComT<E>> for ComT<E> {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self (
             self.0 * other.0,
@@ -229,6 +254,7 @@ impl<E: PairingEngine> Add<ComT<E>> for ComT<E> {
     }
 }
 impl<E: PairingEngine> Zero for ComT<E> {
+    #[inline]
     fn zero() -> Self {
         Self (
             E::Fqk::one(),
@@ -238,6 +264,7 @@ impl<E: PairingEngine> Zero for ComT<E> {
         )
     }
 
+    #[inline]
     fn is_zero(&self) -> bool {
         *self == Self::zero()
     }
@@ -258,7 +285,7 @@ impl<E: PairingEngine> From<Matrix<E::Fqk>> for ComT<E> {
 
 impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
-    /// B_pairing computes entry-wise pairing products
+    /// Commitment bilinear group pairing computes entry-wise pairing products
     fn pairing(x: Com1<E>, y: Com2<E>) -> ComT<E> {
         ComT::<E>(
             // TODO: OPTIMIZATION -- If either element is 0 (G1 / G2), just output 1 (Fqk)
@@ -276,6 +303,7 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
         ]
     }
 
+    #[inline]
     fn linear_map(gt: E::Fqk) -> Self {
         Self (
             E::Fqk::one(),
@@ -288,9 +316,10 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
 
 // TODO: Clean up the option to specify parallel computation
 // TODO: Refactor to reuse code for both scalars and group elements, if possible
+
 // Matrix multiplication algorithm based on source: https://boydjohnson.dev/blog/concurrency-matrix-multiplication/
 
-/// Compute row of matrix corresponding to multiplication of scalar matrices
+/// Computes row of matrix corresponding to multiplication of field matrices
 fn field_matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize, is_parallel: bool) -> Vec<F> {
     
     // Assuming every column in b has the same length
@@ -321,7 +350,7 @@ fn field_matrix_mul_row<F: Field>(row: &[F], rhs: &Matrix<F>, dim: usize, is_par
     }
 }
 
-/// Compute row of matrix corresponding to multiplication of group matrix (G1 or G2) with scalar
+/// Computes row of matrix corresponding to multiplication of group matrix (G1 or G2) with scalar
 /// matrix
 fn group_left_matrix_mul_row<E: PairingEngine, G: AffineCurve>(row: &[G], rhs: &Matrix<G::ScalarField>, dim: usize, is_parallel: bool) -> Vec<G> {
 
@@ -353,7 +382,7 @@ fn group_left_matrix_mul_row<E: PairingEngine, G: AffineCurve>(row: &[G], rhs: &
     }
 }
 
-/// Compute row of matrix corresponding to multiplication of scalar matrix with group matrix (G1 or
+/// Computes row of matrix corresponding to multiplication of scalar matrix with group matrix (G1 or
 /// G2)
 fn group_right_matrix_mul_row<E: PairingEngine, G: AffineCurve>(row: &[G::ScalarField], rhs: &Matrix<G>, dim: usize, is_parallel: bool) -> Vec<G> {
 
@@ -427,7 +456,7 @@ pub(crate) fn field_matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_pa
     }
 }
 
-/// Matrix multiplication of group matrix (G1 or G2) with scalar matrix
+/// Computes multiplication of group matrix (G1 or G2) with scalar matrix
 pub(crate) fn group_left_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matrix<G>, rhs: &Matrix<G::ScalarField>, is_parallel: bool) -> Matrix<G> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
@@ -470,7 +499,7 @@ pub(crate) fn group_left_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matr
 }
 
 
-/// Matrix multiplication of scalar matrix with group matrix (G1 or G2)
+/// Computes multiplication of scalar matrix with group matrix (G1 or G2)
 pub(crate) fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Matrix<G::ScalarField>, rhs: &Matrix<G>, is_parallel: bool) -> Matrix<G> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
@@ -512,10 +541,10 @@ pub(crate) fn group_right_matrix_mul<E: PairingEngine, G: AffineCurve>(lhs: &Mat
     }
 }
 
-/// Compute out-of-place transpose of a matrix
+/// Computes out-of-place transpose of a matrix
 pub(crate) fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
     let mut trans = Vec::with_capacity(mat[0].len());
-    for i in 0..mat[0].len() {
+    for _ in 0..mat[0].len() {
         trans.push(Vec::with_capacity(mat.len()));
     }
 
@@ -528,6 +557,7 @@ pub(crate) fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
     trans
 }
 
+/// Computes matrix addition
 pub(crate) fn matrix_add<F: Add<Output = F> + Clone>(lhs: &Matrix<F>, rhs: &Matrix<F>) -> Matrix<F> {
     assert_eq!(lhs.len(), rhs.len());
     assert_eq!(lhs[0].len(), rhs[0].len());
@@ -760,7 +790,6 @@ mod tests {
         type G1Projective = <F as PairingEngine>::G1Projective;
 
         // 1 x 3 (row) vector
-        let one = Fr::one();
         let mut rng = test_rng();
         let g1gen = G1Projective::rand(&mut rng).into_affine();
         let lhs: Vec<G1Affine> = vec![
@@ -791,7 +820,6 @@ mod tests {
         type G1Projective = <F as PairingEngine>::G1Projective;
 
         // 1 x 3 (row) vector
-        let one = Fr::one();
         let mut rng = test_rng();
         let g1gen = G1Projective::rand(&mut rng).into_affine();
         let lhs: Matrix<G1Affine> = vec![vec![
