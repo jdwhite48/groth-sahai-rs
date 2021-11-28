@@ -176,7 +176,7 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
 
     #[inline]
     fn linear_map_scalar(x: &E::Fr, key: &CRS<E>) -> Self {
-        Com1::<E>::from(group_matrix_scalar_mul::<E, E::G1Affine>(&x, &key.u.0.as_col_vec()))
+        Com1::<E>::from(group_matrix_scalar_mul::<E, E::G1Affine>(&x, &matrix_add(&key.u.1.as_col_vec(), &Com1::<E>::linear_map(&key.g1_gen).as_col_vec()) ))
     }
 }
 
@@ -248,7 +248,7 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
 
     #[inline]
     fn linear_map_scalar(y: &E::Fr, key: &CRS<E>) -> Self {
-        Com2::<E>::from(group_matrix_scalar_mul::<E, E::G2Affine>(&y, &key.v.0.as_col_vec()))
+        Com2::<E>::from(group_matrix_scalar_mul::<E, E::G2Affine>(&y, &matrix_add(&key.v.1.as_col_vec(), &Com2::<E>::linear_map(&key.g2_gen).as_col_vec()) ))
     }
 }
 
@@ -1200,8 +1200,8 @@ mod tests {
 
         assert_eq!(b1.0, G1Affine::zero());
         assert_eq!(b1.1, g1);
-        assert_eq!(b2.0, key.v.0.0.mul(g2));
-        assert_eq!(b2.1, key.v.0.1.mul(g2));
+        assert_eq!(b2.0, key.v.1.0.mul(g2));
+        assert_eq!(b2.1, (key.v.1.1 + key.g2_gen).mul(g2));
     }
 
     #[allow(non_snake_case)]
@@ -1220,6 +1220,10 @@ mod tests {
         let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
         let bt_bilin_lin = ComT::<F>::linear_map_MSG1(&gt, &key);
 
+        assert_eq!(bt_lin_bilin.0, Fqk::one());
+        assert_eq!(bt_lin_bilin.1, Fqk::one());
+        assert_eq!(bt_lin_bilin.2, F::pairing(gt.clone(), key.v.1.0.clone()));
+        assert_eq!(bt_lin_bilin.3, F::pairing(gt.clone(), key.v.1.1.clone() + key.g2_gen.clone()));
         assert_eq!(bt_lin_bilin, bt_bilin_lin);
     }
 
@@ -1234,8 +1238,8 @@ mod tests {
         let b1 = Com1::<F>::linear_map_scalar(&g1, &key);
         let b2 = Com2::<F>::linear_map(&g2);
 
-        assert_eq!(b1.0, key.u.0.0.mul(g1));
-        assert_eq!(b1.1, key.u.0.1.mul(g1));
+        assert_eq!(b1.0, key.u.1.0.mul(g1));
+        assert_eq!(b1.1, (key.u.1.1 + key.g1_gen).mul(g1));
         assert_eq!(b2.0, G2Affine::zero());
         assert_eq!(b2.1, g2);
     }
@@ -1256,6 +1260,10 @@ mod tests {
         let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
         let bt_bilin_lin = ComT::<F>::linear_map_MSG2(&gt, &key);
 
+        assert_eq!(bt_lin_bilin.0, Fqk::one());
+        assert_eq!(bt_lin_bilin.1, F::pairing(key.u.1.0.clone(), gt.clone()));
+        assert_eq!(bt_lin_bilin.2, Fqk::one());
+        assert_eq!(bt_lin_bilin.3, F::pairing(key.u.1.1.clone() + key.g1_gen.clone(), gt.clone()));
         assert_eq!(bt_lin_bilin, bt_bilin_lin);
     }
 }
