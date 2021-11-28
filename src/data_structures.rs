@@ -6,9 +6,11 @@ use ark_std::{
 };
 use rayon::prelude::*;
 
+use crate::generator::CRS;
+
 /// B1,B2,BT forms a bilinear group for GS commitments
 
-// TODO: Implement scalar linear maps for B1, B2
+// TODO: Check sources to see whether commutativity holds with scalar linear maps
 pub trait B1<E: PairingEngine>: Eq
     + Clone
     + Debug
@@ -19,7 +21,8 @@ pub trait B1<E: PairingEngine>: Eq
 {
     fn as_col_vec(&self) -> Matrix<E::G1Affine>;
     fn as_vec(&self) -> Vec<E::G1Affine>;
-    fn linear_map(g1: E::G1Affine) -> Self;
+    fn linear_map(x: &E::G1Affine) -> Self;
+    fn linear_map_scalar(x: &E::Fr, key: &CRS<E>) -> Self;
 }
 pub trait B2<E: PairingEngine>: Eq
     + Clone
@@ -31,8 +34,11 @@ pub trait B2<E: PairingEngine>: Eq
 {
     fn as_col_vec(&self) -> Matrix<E::G2Affine>;
     fn as_vec(&self) -> Vec<E::G2Affine>;
-    fn linear_map(g2: E::G2Affine) -> Self;
+    fn linear_map(y: &E::G2Affine) -> Self;
+    fn linear_map_scalar(y: &E::Fr, key: &CRS<E>) -> Self;
 }
+
+// TODO: Implement linear map for quadratic equations if we really need it
 pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     Eq
     + Clone
@@ -43,8 +49,14 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     + From<Matrix<E::Fqk>>
 {
     fn as_matrix(&self) -> Matrix<E::Fqk>;
-    fn linear_map(gt: E::Fqk) -> Self;
     fn pairing(x: C1, y: C2) -> Self;
+
+    #[allow(non_snake_case)]
+    fn linear_map_PPE(z: &E::Fqk) -> Self;
+    #[allow(non_snake_case)]
+    fn linear_map_MSG1(z: &E::G1Affine, key: &CRS<E>) -> Self;
+    #[allow(non_snake_case)]
+    fn linear_map_MSG2(z: &E::G2Affine, key: &CRS<E>) -> Self;
 }
 
 // SXDH instantiation's bilinear group for commitments
@@ -155,11 +167,16 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
     }
 
     #[inline]
-    fn linear_map(g1: E::G1Affine) -> Self {
+    fn linear_map(x: &E::G1Affine) -> Self {
         Self (
             E::G1Affine::zero(),
-            g1.clone()
+            x.clone()
         )
+    }
+
+    #[inline]
+    fn linear_map_scalar(x: &E::Fr, key: &CRS<E>) -> Self {
+        Com1::<E>::from(group_matrix_scalar_mul::<E, E::G1Affine>(&x, &key.u.0.as_col_vec()))
     }
 }
 
@@ -222,11 +239,16 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
     }
 
     #[inline]
-    fn linear_map(g2: E::G2Affine) -> Self {
+    fn linear_map(y: &E::G2Affine) -> Self {
         Self (
             E::G2Affine::zero(),
-            g2.clone()
+            y.clone()
         )
+    }
+
+    #[inline]
+    fn linear_map_scalar(y: &E::Fr, key: &CRS<E>) -> Self {
+        Com2::<E>::from(group_matrix_scalar_mul::<E, E::G2Affine>(&y, &key.v.0.as_col_vec()))
     }
 }
 
@@ -304,13 +326,23 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     }
 
     #[inline]
-    fn linear_map(gt: E::Fqk) -> Self {
+    fn linear_map_PPE(z: &E::Fqk) -> Self {
         Self (
             E::Fqk::one(),
             E::Fqk::one(),
             E::Fqk::one(),
-            gt.clone()
+            z.clone()
         )
+    }
+
+    #[inline]
+    fn linear_map_MSG1(z: &E::G1Affine, key: &CRS<E>) -> Self {
+        Self::pairing(Com1::<E>::linear_map(z), Com2::<E>::linear_map_scalar(&E::Fr::one(), key))
+    }
+
+    #[inline]
+    fn linear_map_MSG2(z: &E::G2Affine, key: &CRS<E>) -> Self {
+        Self::pairing(Com1::<E>::linear_map_scalar(&E::Fr::one(), key), Com2::<E>::linear_map(z))
     }
 }
 
@@ -611,11 +643,13 @@ mod tests {
 
     use crate::data_structures::*;
 
-    type G1Projective = <F as PairingEngine>::G1Projective;
     type G1Affine = <F as PairingEngine>::G1Affine;
-    type G2Projective = <F as PairingEngine>::G2Projective;
+    type G1Projective = <F as PairingEngine>::G1Projective;
     type G2Affine = <F as PairingEngine>::G2Affine;
+    type G2Projective = <F as PairingEngine>::G2Projective;
     type GT = <F as PairingEngine>::Fqk;
+    type Fqk = <F as PairingEngine>::Fqk;
+    type Fr = <F as PairingEngine>::Fr;
 
     
     #[allow(non_snake_case)]
@@ -702,8 +736,6 @@ mod tests {
     #[test]
     fn test_scalar_matrix_mul_row() {
 
-        type Fr = <F as PairingEngine>::Fr;
-
         // 1 x 3 (row) vector
         let one = Fr::one();
         let lhs: Vec<Fr> = vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")];
@@ -724,8 +756,6 @@ mod tests {
 
     #[test]
     fn test_scalar_matrix_mul_entry() {
-        
-        type Fr = <F as PairingEngine>::Fr;
 
         // 1 x 3 (row) vector
         let one = Fr::one();
@@ -749,9 +779,7 @@ mod tests {
 
     #[test]
     fn test_scalar_matrix_mul() {
-        
-        type Fr = <F as PairingEngine>::Fr;
-        
+
         // 2 x 3 matrix
         let one = Fr::one();
         let lhs: Matrix<Fr> = vec![
@@ -780,9 +808,7 @@ mod tests {
 
     #[test]
     fn test_scalar_matrix_mul_rayon() {
-        
-        type Fr = <F as PairingEngine>::Fr;
-        
+
         // 2 x 3 matrix
         let one = Fr::one();
         let lhs: Matrix<Fr> = vec![
@@ -813,10 +839,6 @@ mod tests {
     #[test]
     fn test_group_left_matrix_mul_row() {
 
-        type Fr = <F as PairingEngine>::Fr;
-        type G1Affine = <F as PairingEngine>::G1Affine;
-        type G1Projective = <F as PairingEngine>::G1Projective;
-
         // 1 x 3 (row) vector
         let mut rng = test_rng();
         let g1gen = G1Projective::rand(&mut rng).into_affine();
@@ -842,10 +864,6 @@ mod tests {
 
     #[test]
     fn test_group_left_matrix_mul_entry() {
-        
-        type Fr = <F as PairingEngine>::Fr;
-        type G1Affine = <F as PairingEngine>::G1Affine;
-        type G1Projective = <F as PairingEngine>::G1Projective;
 
         // 1 x 3 (row) vector
         let mut rng = test_rng();
@@ -874,10 +892,6 @@ mod tests {
     #[test]
     fn test_group_right_matrix_mul_row() {
 
-        type Fr = <F as PairingEngine>::Fr;
-        type G1Affine = <F as PairingEngine>::G1Affine;
-        type G1Projective = <F as PairingEngine>::G1Projective;
-
         // 1 x 3 (row) vector
         let one = Fr::one();
         let mut rng = test_rng();
@@ -900,10 +914,6 @@ mod tests {
 
     #[test]
     fn test_group_right_matrix_mul_entry() {
-        
-        type Fr = <F as PairingEngine>::Fr;
-        type G1Affine = <F as PairingEngine>::G1Affine;
-        type G1Projective = <F as PairingEngine>::G1Projective;
 
         // 1 x 3 (row) vector
         let one = Fr::one();
@@ -930,8 +940,6 @@ mod tests {
     #[test]
     fn test_matrix_transpose_vec() {
 
-        type Fr = <F as PairingEngine>::Fr;
-
         // 1 x 3 (row) vector
         let one = Fr::one();
         let mat: Matrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
@@ -954,8 +962,6 @@ mod tests {
 
     #[test]
     fn test_matrix_transpose() {
-
-        type Fr = <F as PairingEngine>::Fr;
 
         // 3 x 3 matrix
         let one = Fr::one();
@@ -983,8 +989,6 @@ mod tests {
     #[test]
     fn test_scalar_matrix_scalar_mul() {
 
-        type Fr = <F as PairingEngine>::Fr;
-
         // 3 x 3 matrices
         let one = Fr::one();
         let scalar: Fr = field_new!(Fr, "3");
@@ -1007,9 +1011,6 @@ mod tests {
     #[test]
     fn test_group_matrix_scalar_mul() {
 
-        type Fr = <F as PairingEngine>::Fr;
-        type G1Affine = <F as PairingEngine>::G1Affine;
-
         let scalar: Fr = field_new!(Fr, "3");
 
         // 3 x 3 matrix {{1,2,3}, {4,5,6}, {7,8,9}}
@@ -1018,7 +1019,7 @@ mod tests {
         let mut mat: Matrix<G1Affine> = Vec::with_capacity(3);
         for i in 0..3 {
             mat.push(Vec::with_capacity(3));
-            for j in 0..3 {
+            for _ in 0..3 {
 
                 mat[i].push(g1gen.mul(field_new!(Fr,"3")).into_affine());
             }
@@ -1027,7 +1028,7 @@ mod tests {
         let mut exp: Matrix<G1Affine> = Vec::with_capacity(3);
         for i in 0..3 {
             exp.push(Vec::with_capacity(3));
-            for j in 0..3 {
+            for _ in 0..3 {
                 exp[i].push(g1gen.mul(field_new!(Fr,"9")).into_affine());
             }
         }
@@ -1038,8 +1039,6 @@ mod tests {
 
     #[test]
     fn test_matrix_add() {
-
-        type Fr = <F as PairingEngine>::Fr;
 
         // 3 x 3 matrices
         let one = Fr::one();
@@ -1072,8 +1071,6 @@ mod tests {
 
     #[test]
     fn test_matrix_add_commutativity() {
-
-        type Fr = <F as PairingEngine>::Fr;
 
         // 3 x 3 matrices
         let one = Fr::one();
@@ -1153,13 +1150,13 @@ mod tests {
     }
 
     #[test]
-    fn test_linear_maps() {
+    fn test_PPE_linear_maps() {
 
         let mut rng = test_rng();
         let g1 = G1Projective::rand(&mut rng).into_affine();
         let g2 = G2Projective::rand(&mut rng).into_affine();
-        let b1 = Com1::<F>::linear_map(g1);
-        let b2 = Com2::<F>::linear_map(g2);
+        let b1 = Com1::<F>::linear_map(&g1);
+        let b2 = Com2::<F>::linear_map(&g2);
 
         assert_eq!(b1.0, G1Affine::zero());
         assert_eq!(b1.1, g1);
@@ -1171,17 +1168,15 @@ mod tests {
     #[test]
     fn test_PPE_linear_bilinear_map_commutativity() {
 
-        type Fqk = <F as PairingEngine>::Fqk;
-
         let mut rng = test_rng();
         let g1 = G1Projective::rand(&mut rng).into_affine();
         let g2 = G2Projective::rand(&mut rng).into_affine();
         let gt = F::pairing::<G1Affine, G2Affine>(g1.clone(), g2.clone());
-        let b1 = Com1::<F>::linear_map(g1);
-        let b2 = Com2::<F>::linear_map(g2);
+        let b1 = Com1::<F>::linear_map(&g1);
+        let b2 = Com2::<F>::linear_map(&g2);
 
         let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
-        let bt_bilin_lin = ComT::<F>::linear_map(gt);
+        let bt_bilin_lin = ComT::<F>::linear_map_PPE(&gt);
 
         assert_eq!(bt_lin_bilin.0, Fqk::one());
         assert_eq!(bt_lin_bilin.1, Fqk::one());
@@ -1190,5 +1185,77 @@ mod tests {
         assert_eq!(bt_bilin_lin.1, Fqk::one());
         assert_eq!(bt_bilin_lin.2, Fqk::one());
         assert_eq!(bt_lin_bilin.3, bt_bilin_lin.3);
+    }
+
+    #[test]
+    fn test_MSG1_linear_maps() {
+
+        let mut rng = test_rng();
+        let key = CRS::<F>::generate_crs(&mut rng);
+
+        let g1 = G1Projective::rand(&mut rng).into_affine();
+        let g2 = Fr::rand(&mut rng);
+        let b1 = Com1::<F>::linear_map(&g1);
+        let b2 = Com2::<F>::linear_map_scalar(&g2, &key);
+
+        assert_eq!(b1.0, G1Affine::zero());
+        assert_eq!(b1.1, g1);
+        assert_eq!(b2.0, key.v.0.0.mul(g2));
+        assert_eq!(b2.1, key.v.0.1.mul(g2));
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_MSG1_linear_bilinear_map_commutativity() {
+
+        let mut rng = test_rng();
+        let key = CRS::<F>::generate_crs(&mut rng);
+
+        let g1 = G1Projective::rand(&mut rng).into_affine();
+        let g2 = Fr::rand(&mut rng);
+        let gt = g1.mul(g2).into_affine();
+        let b1 = Com1::<F>::linear_map(&g1);
+        let b2 = Com2::<F>::linear_map_scalar(&g2, &key);
+
+        let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
+        let bt_bilin_lin = ComT::<F>::linear_map_MSG1(&gt, &key);
+
+        assert_eq!(bt_lin_bilin, bt_bilin_lin);
+    }
+
+    #[test]
+    fn test_MSG2_linear_maps() {
+
+        let mut rng = test_rng();
+        let key = CRS::<F>::generate_crs(&mut rng);
+
+        let g1 = Fr::rand(&mut rng);
+        let g2 = G2Projective::rand(&mut rng).into_affine();
+        let b1 = Com1::<F>::linear_map_scalar(&g1, &key);
+        let b2 = Com2::<F>::linear_map(&g2);
+
+        assert_eq!(b1.0, key.u.0.0.mul(g1));
+        assert_eq!(b1.1, key.u.0.1.mul(g1));
+        assert_eq!(b2.0, G2Affine::zero());
+        assert_eq!(b2.1, g2);
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_MSG2_linear_bilinear_map_commutativity() {
+
+        let mut rng = test_rng();
+        let key = CRS::<F>::generate_crs(&mut rng);
+
+        let g1 = Fr::rand(&mut rng);
+        let g2 = G2Projective::rand(&mut rng).into_affine();
+        let b1 = Com1::<F>::linear_map_scalar(&g1, &key);
+        let b2 = Com2::<F>::linear_map(&g2);
+        let gt = g2.mul(g1).into_affine();
+
+        let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
+        let bt_bilin_lin = ComT::<F>::linear_map_MSG2(&gt, &key);
+
+        assert_eq!(bt_lin_bilin, bt_bilin_lin);
     }
 }

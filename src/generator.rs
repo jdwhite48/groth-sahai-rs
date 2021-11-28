@@ -6,11 +6,11 @@ use ark_ec::{AffineCurve, ProjectiveCurve, PairingEngine};
 
 /// Commitment keys for G1 and G2, as well as generators for the bilinear group
 pub struct CRS<E: PairingEngine> {
-    u: (Com1<E>, Com1<E>),
-    v: (Com2<E>, Com2<E>),
-    g1_gen: E::G1Affine,
-    g2_gen: E::G2Affine,
-    gt_gen: E::Fqk,
+    pub u: (Com1<E>, Com1<E>),
+    pub v: (Com2<E>, Com2<E>),
+    pub g1_gen: E::G1Affine,
+    pub g2_gen: E::G2Affine,
+    pub gt_gen: E::Fqk,
 }
 
 impl<E: PairingEngine> CRS<E> {
