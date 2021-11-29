@@ -79,7 +79,6 @@ pub struct Com2<E: PairingEngine>(pub E::G2Affine, pub E::G2Affine);
 #[derive(Clone, Debug)]
 pub struct ComT<E: PairingEngine>(pub E::Fqk, pub E::Fqk, pub E::Fqk, pub E::Fqk);
 
-
 // TODO: Refactor matrix code to use Matrix trait (cleaner)
 // Would have to implement Matrix as a struct instead of pub type ... Vec<...> because "impl X for
 // Vec<...> doesn't work; Vec defined outside of crate
@@ -101,6 +100,36 @@ pub trait Matrix<Other = Self>:
 /// Sparse representation of matrices
 pub type Matrix<F> = Vec<Vec<F>>;
 
+/// Collapse matrix into a single vector
+pub fn col_vec_to_vec<F: Clone>(mat: &Matrix<F>) -> Vec<F> {
+
+    if mat.len() == 1 {
+        // TODO: OPTIMIZATION -- find mor efficient way of copying over vector
+        let mut res = Vec::with_capacity(mat[0].len());
+        for elem in mat[0].iter() {
+            res.push(elem.clone());
+        }
+        res
+    }
+    else {
+        let mut res = Vec::with_capacity(mat.len());
+        for i in 0..mat.len() {
+            assert_eq!(mat[i].len(), 1);
+            res.push(mat[i][0].clone());
+        }
+        res
+    }
+}
+
+/// Expand vector into column vector (in matrix form)
+pub fn vec_to_col_vec<F: Clone>(vec: &Vec<F>) -> Matrix<F> {
+
+    let mut mat = Vec::with_capacity(vec.len());
+    for elem in vec.iter() {
+        mat.push(vec![elem.clone()]);
+    }
+    mat
+}
 
 // TODO: Combine this into a macro for Com1<E>: B1, Com2<E>: B2, ComT<E>: BT<B1,B2> (cleaner?)
 /*
@@ -1292,6 +1321,21 @@ mod tests {
         assert_eq!(bt.3, bt_vec[1][1]);
     }
 
+    #[test]
+    fn test_col_vec_to_vec() {
+        let mat = vec![vec![field_new!(Fr, "1")], vec![field_new!(Fr, "2")], vec![field_new!(Fr, "3")]];
+        let vec: Vec<Fr> = col_vec_to_vec(&mat);
+        let exp = vec![field_new!(Fr, "1"), field_new!(Fr, "2"), field_new!(Fr, "3")];
+        assert_eq!(vec, exp);
+    }
+
+    #[test]
+    fn test_vec_to_col_vec() {
+        let vec = vec![field_new!(Fr, "1"), field_new!(Fr, "2"), field_new!(Fr, "3")];
+        let mat: Matrix<Fr> = vec_to_col_vec(&vec);
+        let exp = vec![vec![field_new!(Fr, "1")], vec![field_new!(Fr, "2")], vec![field_new!(Fr, "3")]];
+        assert_eq!(mat, exp);
+    }
     #[test]
     fn test_PPE_linear_maps() {
 
