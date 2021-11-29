@@ -28,8 +28,8 @@ pub trait B1<E: PairingEngine>: Eq
     fn as_vec(&self) -> Vec<E::G1Affine>;
     fn linear_map(x: &E::G1Affine) -> Self;
     fn batch_linear_map(x_vec: &Vec<E::G1Affine>) -> Vec<Self>;
-    fn linear_map_scalar(x: &E::Fr, key: &CRS<E>) -> Self;
-    fn batch_linear_map_scalar(x_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
+    fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self;
+    fn batch_scalar_linear_map(x_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
 }
 pub trait B2<E: PairingEngine>: Eq
     + Clone
@@ -46,8 +46,8 @@ pub trait B2<E: PairingEngine>: Eq
     fn as_vec(&self) -> Vec<E::G2Affine>;
     fn linear_map(y: &E::G2Affine) -> Self;
     fn batch_linear_map(y_vec: &Vec<E::G2Affine>) -> Vec<Self>;
-    fn linear_map_scalar(y: &E::Fr, key: &CRS<E>) -> Self;
-    fn batch_linear_map_scalar(y_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
+    fn scalar_linear_map(y: &E::Fr, key: &CRS<E>) -> Self;
+    fn batch_scalar_linear_map(y_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
 }
 
 // TODO: Implement linear map for quadratic equations if we really need it
@@ -268,15 +268,15 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
     }
 
     #[inline]
-    fn linear_map_scalar(x: &E::Fr, key: &CRS<E>) -> Self {
+    fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self {
         Com1::<E>::from(group_matrix_scalar_mul::<E, E::G1Affine>(&x, &matrix_add(&key.u.1.as_col_vec(), &Com1::<E>::linear_map(&key.g1_gen).as_col_vec()) ))
     }
 
     #[inline]
-    fn batch_linear_map_scalar(x_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self> {
+    fn batch_scalar_linear_map(x_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self> {
         x_vec
             .into_iter()
-            .map( |elem| Self::linear_map_scalar(&elem, key))
+            .map( |elem| Self::scalar_linear_map(&elem, key))
             .collect::<Vec<Self>>()
     }
 }
@@ -397,15 +397,15 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
     }
 
     #[inline]
-    fn linear_map_scalar(y: &E::Fr, key: &CRS<E>) -> Self {
+    fn scalar_linear_map(y: &E::Fr, key: &CRS<E>) -> Self {
         Com2::<E>::from(group_matrix_scalar_mul::<E, E::G2Affine>(&y, &matrix_add(&key.v.1.as_col_vec(), &Com2::<E>::linear_map(&key.g2_gen).as_col_vec()) ))
     }
 
     #[inline]
-    fn batch_linear_map_scalar(y_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self> {
+    fn batch_scalar_linear_map(y_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self> {
         y_vec
             .into_iter()
-            .map( |elem| Self::linear_map_scalar(&elem, key))
+            .map( |elem| Self::scalar_linear_map(&elem, key))
             .collect::<Vec<Self>>()
     }
 }
@@ -545,12 +545,12 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
 
     #[inline]
     fn linear_map_MSG1(z: &E::G1Affine, key: &CRS<E>) -> Self {
-        Self::pairing(Com1::<E>::linear_map(z), Com2::<E>::linear_map_scalar(&E::Fr::one(), key))
+        Self::pairing(Com1::<E>::linear_map(z), Com2::<E>::scalar_linear_map(&E::Fr::one(), key))
     }
 
     #[inline]
     fn linear_map_MSG2(z: &E::G2Affine, key: &CRS<E>) -> Self {
-        Self::pairing(Com1::<E>::linear_map_scalar(&E::Fr::one(), key), Com2::<E>::linear_map(z))
+        Self::pairing(Com1::<E>::scalar_linear_map(&E::Fr::one(), key), Com2::<E>::linear_map(z))
     }
 }
 
@@ -1394,13 +1394,13 @@ mod tests {
         let key = CRS::<F>::generate_crs(&mut rng);
 
         let vec_scalar = vec![Fr::rand(&mut rng), Fr::rand(&mut rng)];
-        let vec_b1 = Com1::<F>::batch_linear_map_scalar(&vec_scalar, &key);
-        let vec_b2 = Com2::<F>::batch_linear_map_scalar(&vec_scalar, &key);
+        let vec_b1 = Com1::<F>::batch_scalar_linear_map(&vec_scalar, &key);
+        let vec_b2 = Com2::<F>::batch_scalar_linear_map(&vec_scalar, &key);
 
-        assert_eq!(vec_b1[0], Com1::<F>::linear_map_scalar(&vec_scalar[0], &key));
-        assert_eq!(vec_b1[1], Com1::<F>::linear_map_scalar(&vec_scalar[1], &key));
-        assert_eq!(vec_b2[0], Com2::<F>::linear_map_scalar(&vec_scalar[0], &key));
-        assert_eq!(vec_b2[1], Com2::<F>::linear_map_scalar(&vec_scalar[1], &key));
+        assert_eq!(vec_b1[0], Com1::<F>::scalar_linear_map(&vec_scalar[0], &key));
+        assert_eq!(vec_b1[1], Com1::<F>::scalar_linear_map(&vec_scalar[1], &key));
+        assert_eq!(vec_b2[0], Com2::<F>::scalar_linear_map(&vec_scalar[0], &key));
+        assert_eq!(vec_b2[1], Com2::<F>::scalar_linear_map(&vec_scalar[1], &key));
     }
 
     #[allow(non_snake_case)]
@@ -1452,7 +1452,7 @@ mod tests {
         let g1 = G1Projective::rand(&mut rng).into_affine();
         let g2 = Fr::rand(&mut rng);
         let b1 = Com1::<F>::linear_map(&g1);
-        let b2 = Com2::<F>::linear_map_scalar(&g2, &key);
+        let b2 = Com2::<F>::scalar_linear_map(&g2, &key);
 
         assert_eq!(b1.0, G1Affine::zero());
         assert_eq!(b1.1, g1);
@@ -1471,7 +1471,7 @@ mod tests {
         let g2 = Fr::rand(&mut rng);
         let gt = g1.mul(g2).into_affine();
         let b1 = Com1::<F>::linear_map(&g1);
-        let b2 = Com2::<F>::linear_map_scalar(&g2, &key);
+        let b2 = Com2::<F>::scalar_linear_map(&g2, &key);
 
         let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
         let bt_bilin_lin = ComT::<F>::linear_map_MSG1(&gt, &key);
@@ -1492,7 +1492,7 @@ mod tests {
 
         let g1 = Fr::rand(&mut rng);
         let g2 = G2Projective::rand(&mut rng).into_affine();
-        let b1 = Com1::<F>::linear_map_scalar(&g1, &key);
+        let b1 = Com1::<F>::scalar_linear_map(&g1, &key);
         let b2 = Com2::<F>::linear_map(&g2);
 
         assert_eq!(b1.0, key.u.1.0.mul(g1));
@@ -1510,7 +1510,7 @@ mod tests {
 
         let g1 = Fr::rand(&mut rng);
         let g2 = G2Projective::rand(&mut rng).into_affine();
-        let b1 = Com1::<F>::linear_map_scalar(&g1, &key);
+        let b1 = Com1::<F>::scalar_linear_map(&g1, &key);
         let b2 = Com2::<F>::linear_map(&g2);
         let gt = g2.mul(g1).into_affine();
 
