@@ -1,6 +1,7 @@
 
 pub mod data_structures;
 pub mod generator;
+//pub mod commit;
 
 /// Groth-Sahai statement (equation) types
 pub enum GSType {
@@ -17,3 +18,4 @@ pub enum Role {
 
 pub use crate::generator::CRS;
 pub use crate::data_structures::*;
+//pub use crate::commit::*;

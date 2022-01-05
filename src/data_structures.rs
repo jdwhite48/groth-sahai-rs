@@ -654,8 +654,10 @@ fn group_right_matrix_mul_row<E: PairingEngine, G: AffineCurve>(row: &[G::Scalar
     }
 }
 
-/// Matrix multiplication of field matrices (scalar/Fr or GT/Fqk)
 // TODO: Change all pub matrix functions to pub(crate)? (or else move benches inward)
+
+// TODO: Move all the group matrix functions into B1/B2/BT (proof system operates on these, not group)
+/// Matrix multiplication of field matrices (scalar/Fr or GT/Fqk)
 pub fn field_matrix_mul<F: Field>(lhs: &Matrix<F>, rhs: &Matrix<F>, is_parallel: bool) -> Matrix<F> {
     if lhs.len() == 0 || lhs[0].len() == 0 {
         return vec![];
