@@ -161,7 +161,7 @@ impl<E: PairingEngine> PartialEq for Com1<E> {
 }
 impl<E: PairingEngine> Eq for Com1<E> {}
 
-/// Addition for B1 is entry-wise addition of eleents in G1
+/// Addition for B1 is entry-wise addition of elements in G1
 impl<E: PairingEngine> Add<Com1<E>> for Com1<E> {
     type Output = Self;
 
@@ -467,10 +467,10 @@ impl<E: PairingEngine> Neg for ComT<E> {
     #[inline]
     fn neg(self) -> Self::Output {
         Self (
-            -self.0,
-            -self.1,
-            -self.2,
-            -self.3
+            E::Fqk::one() / self.0,
+            E::Fqk::one() / self.1,
+            E::Fqk::one() / self.2,
+            E::Fqk::one() / self.3
         )
     }
 }
@@ -480,10 +480,10 @@ impl<E: PairingEngine> Sub<ComT<E>> for ComT<E> {
     #[inline]
     fn sub(self, other: Self) -> Self {
         Self (
-            self.0 * -other.0,
-            self.1 * -other.1,
-            self.2 * -other.2,
-            self.3 * -other.3
+            self.0 * (E::Fqk::one() / other.0),
+            self.1 * (E::Fqk::one() / other.1),
+            self.2 * (E::Fqk::one() / other.2),
+            self.3 * (E::Fqk::one() / other.3)
         )
     }
 }
@@ -492,10 +492,10 @@ impl<E: PairingEngine> SubAssign<ComT<E>> for ComT<E> {
     #[inline]
     fn sub_assign(&mut self, other: Self) {
         *self = Self (
-            self.0 * -other.0,
-            self.1 * -other.1,
-            self.2 * -other.2,
-            self.3 * -other.3
+            self.0 * (E::Fqk::one() / other.0),
+            self.1 * (E::Fqk::one() / other.1),
+            self.2 * (E::Fqk::one() / other.2),
+            self.3 * (E::Fqk::one() / other.3)
         );
     }
 }
@@ -942,6 +942,54 @@ mod tests {
         assert_eq!(bt.1, GT::one());
         assert_eq!(bt.2, GT::one());
         assert_eq!(bt.3, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.1.clone()));
+    }
+
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_B1_neg() {
+        let mut rng = test_rng();
+        let b = Com1::<F>(
+            G1Projective::rand(&mut rng).into_affine(),
+            G1Projective::rand(&mut rng).into_affine()
+        );
+        let bneg = -b.clone();
+        let zero = b.clone() + bneg.clone();
+
+        assert_eq!(zero, Com1::<F>::zero());
+        assert!(zero.is_zero());
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_B2_neg() {
+        let mut rng = test_rng();
+        let b = Com2::<F>(
+            G2Projective::rand(&mut rng).into_affine(),
+            G2Projective::rand(&mut rng).into_affine()
+        );
+        let bneg = -b.clone();
+        let zero = b.clone() + bneg.clone();
+
+        assert_eq!(zero, Com2::<F>::zero());
+        assert!(zero.is_zero());
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_BT_neg() {
+        let mut rng = test_rng();
+        let b = ComT::<F>(
+            Fqk::rand(&mut rng),
+            Fqk::rand(&mut rng),
+            Fqk::rand(&mut rng),
+            Fqk::rand(&mut rng),
+        );
+        let bneg = -b.clone();
+        let zero = b.clone() + bneg.clone();
+
+        assert_eq!(zero, ComT::<F>::zero());
+        assert!(zero.is_zero());
     }
 
     #[test]
