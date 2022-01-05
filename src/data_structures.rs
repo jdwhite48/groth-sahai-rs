@@ -10,10 +10,9 @@ use crate::generator::CRS;
 
 /// B1,B2,BT forms a bilinear group for GS commitments
 
-// TODO: Clean up AddAssign to use Add operator for B1/B2/BT (I couldn't get it to work without
-// moving self...)
 // TODO: Parallelize batched linear maps for B1/B2
-pub trait B1<E: PairingEngine>: Eq
+pub trait B<E: PairingEngine>:
+    Eq
     + Clone
     + Debug
     + Zero
@@ -22,6 +21,10 @@ pub trait B1<E: PairingEngine>: Eq
     + Sub<Self, Output = Self>
     + SubAssign<Self>
     + Neg<Output = Self>
+{}
+
+pub trait B1<E: PairingEngine>:
+    B<E>
     + From<Matrix<E::G1Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G1Affine>;
@@ -31,15 +34,8 @@ pub trait B1<E: PairingEngine>: Eq
     fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self;
     fn batch_scalar_linear_map(x_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
 }
-pub trait B2<E: PairingEngine>: Eq
-    + Clone
-    + Debug
-    + Zero
-    + Add<Self, Output = Self>
-    + AddAssign<Self>
-    + Sub<Self, Output = Self>
-    + SubAssign<Self>
-    + Neg<Output = Self>
+pub trait B2<E: PairingEngine>:
+    B<E>
     + From<Matrix<E::G2Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G2Affine>;
@@ -154,6 +150,7 @@ impl_Com!(for 1, 2);
 
 // Com1 implements B1
 impl<E: PairingEngine> PartialEq for Com1<E> {
+
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
@@ -242,6 +239,7 @@ impl<E: PairingEngine> SubAssign<Com1<E>> for Com1<E> {
     }
 }
 
+impl<E: PairingEngine> B<E> for Com1<E> {}
 impl<E: PairingEngine> B1<E> for Com1<E> {
     fn as_col_vec(&self) -> Matrix<E::G1Affine> {
         vec![ vec![self.0], vec![self.1] ]
@@ -371,6 +369,7 @@ impl<E: PairingEngine> From<Matrix<E::G2Affine>> for Com2<E> {
     }
 }
 
+impl<E: PairingEngine> B<E> for Com2<E> {}
 impl<E: PairingEngine> B2<E> for Com2<E> {
     fn as_col_vec(&self) -> Matrix<E::G2Affine> {
         vec![ vec![self.0], vec![self.1] ]
@@ -513,6 +512,7 @@ impl<E: PairingEngine> From<Matrix<E::Fqk>> for ComT<E> {
     }
 }
 
+impl<E: PairingEngine> B<E> for ComT<E> {}
 impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
     /// Commitment bilinear group pairing computes entry-wise pairing products
@@ -798,7 +798,7 @@ pub fn field_matrix_scalar_mul<F: Field>(scalar: &F, mat: &Matrix<F>) -> Matrix<
     smul
 }
 
-/// Computes multiplication of scalar with a group matrix (G1 or G2)
+/// Computes multiplication of scalar with a commitment group matrix (B1 or B2)
 pub fn group_matrix_scalar_mul<E: PairingEngine, G: AffineCurve>(scalar: &G::ScalarField, mat: &Matrix<G>) -> Matrix<G> {
     let m = mat.len();
     let n = mat[0].len();
