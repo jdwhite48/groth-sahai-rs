@@ -48,15 +48,7 @@ pub trait B2<E: PairingEngine>:
 
 // TODO: Implement linear map for quadratic equations if we really need it
 pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
-    Eq
-    + Clone
-    + Debug
-    + Zero
-    + Add<Self, Output = Self>
-    + AddAssign<Self>
-    + Sub<Self, Output = Self>
-    + SubAssign<Self>
-    + Neg<Output = Self>
+    B<E>    
     + From<Matrix<E::Fqk>>
 {
     fn as_matrix(&self) -> Matrix<E::Fqk>;
@@ -149,14 +141,24 @@ impl_Com!(for 1, 2);
 */
 
 // Com1 implements B1
-impl<E: PairingEngine> PartialEq for Com1<E> {
 
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
+macro_rules! com_eq {
+    (
+            $com:ident
+    ) => {
+        impl<E: PairingEngine> PartialEq for $com<E> {
+
+            #[inline]
+            fn eq(&self, other: &Self) -> bool {
+                self.0 == other.0 && self.1 == other.1
+            }
+        }
+        impl<E: PairingEngine> Eq for $com<E> {}
     }
 }
-impl<E: PairingEngine> Eq for Com1<E> {}
+com_eq!(Com1);
+com_eq!(Com2);
+
 
 /// Addition for B1 is entry-wise addition of elements in G1
 impl<E: PairingEngine> Add<Com1<E>> for Com1<E> {
@@ -281,13 +283,6 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
 
 
 // Com2 implements B2
-impl<E: PairingEngine> PartialEq for Com2<E> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
-    }
-}
-impl<E: PairingEngine> Eq for Com2<E> {}
 
 /// Addition for B2 is entry-wise addition of elements in G2
 impl<E: PairingEngine> Add<Com2<E>> for Com2<E> {
