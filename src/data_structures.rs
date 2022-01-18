@@ -21,7 +21,7 @@ pub trait Mat<Elem: Clone>:
     type Other;
 
     fn add(self, other: Self) -> Self;
-    fn scalar_mul(&mut self, other: Self::Other);
+    fn scalar_mul(self, other: Self::Other) -> Self;
     fn transpose(&mut self);
     /// Matrix multiplication with the other matrix on the left.
     fn left_mul(&mut self, lhs: &Matrix<Self::Other>, is_parallel: bool);
@@ -61,7 +61,7 @@ pub trait B1<E: PairingEngine>:
     fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self;
     fn batch_scalar_linear_map(x_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
 
-    fn scalar_mul(&self, other: E::Fr) -> Self;
+    fn scalar_mul(&self, other: &E::Fr) -> Self;
 }
 
 /// Provides linear maps and vector conversions for the extension of the GS commitment group.
@@ -79,7 +79,7 @@ pub trait B2<E: PairingEngine>:
     fn scalar_linear_map(y: &E::Fr, key: &CRS<E>) -> Self;
     fn batch_scalar_linear_map(y_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
 
-    fn scalar_mul(&self, other: E::Fr) -> Self;
+    fn scalar_mul(&self, other: &E::Fr) -> Self;
 }
 
 // TODO: Implement linear map for quadratic equations if needed
@@ -342,7 +342,8 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
 
     #[inline]
     fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self {
-        Com1::<E>::from(group_matrix_scalar_mul::<E, E::G1Affine>(&x, &matrix_add(&key.u.1.as_col_vec(), &Com1::<E>::linear_map(&key.g1_gen).as_col_vec()) ))
+        // = xu, where u = u_2 + (O, P) is a commitment group element
+        ( key.u.1.clone() + Com1::<E>::linear_map(&key.g1_gen) ).scalar_mul(&x)
     }
 
     #[inline]
@@ -353,12 +354,12 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
             .collect::<Vec<Self>>()
     }
 
-    fn scalar_mul(&self, rhs: E::Fr) -> Self {
+    fn scalar_mul(&self, rhs: &E::Fr) -> Self {
 
         let mut s1p = self.0.clone().into_projective();
         let mut s2p = self.1.clone().into_projective();
-        s1p *= rhs;
-        s2p *= rhs;
+        s1p *= *rhs;
+        s2p *= *rhs;
         Self (
             s1p.into_affine().clone(),
             s2p.into_affine().clone()
@@ -393,7 +394,8 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
 
     #[inline]
     fn scalar_linear_map(y: &E::Fr, key: &CRS<E>) -> Self {
-        Com2::<E>::from(group_matrix_scalar_mul::<E, E::G2Affine>(&y, &matrix_add(&key.v.1.as_col_vec(), &Com2::<E>::linear_map(&key.g2_gen).as_col_vec()) ))
+        // = xu, where u = u_2 + (O, P) is a commitment group element
+        ( key.v.1.clone() + Com2::<E>::linear_map(&key.g2_gen) ).scalar_mul(&y)
     }
 
     #[inline]
@@ -404,12 +406,12 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
             .collect::<Vec<Self>>()
     }
 
-    fn scalar_mul(&self, rhs: E::Fr) -> Self{
+    fn scalar_mul(&self, rhs: &E::Fr) -> Self{
 
         let mut s1p = self.0.clone().into_projective();
         let mut s2p = self.1.clone().into_projective();
-        s1p *= rhs;
-        s2p *= rhs;
+        s1p *= *rhs;
+        s2p *= *rhs;
         Self (
             s1p.into_affine().clone(),
             s2p.into_affine().clone()
@@ -812,217 +814,217 @@ pub fn field_matrix_scalar_mul<F: Field>(scalar: &F, mat: &Matrix<F>) -> Matrix<
 
 // Matrix multiplication algorithm based on source: https://boydjohnson.dev/blog/concurrency-matrix-multiplication/
 
-/*
-// Implements scalar point-multiplication for matrices of commitment group elements
-impl<E: PairingEngine> MulAssign<E::Fr> for Matrix<Com1<E>> {
-    fn mul_assign(&mut self, other: E::Fr) {
-        let m = self.len();
-        let n = self[0].len();
-        let mut smul = Vec::with_capacity(m);
-        for i in 0..m {
-            smul.push(Vec::with_capacity(n));
-            for j in 0..n {
-                let mut elem = self[i][j];
-                elem *= other;
-                smul[i].push(elem.clone());
+macro_rules! impl_base_commit_mats {
+    (
+        $(
+            $com:ident
+        ),*
+    ) => {
+        // Repeat for each $com
+        $(
+
+            /*
+            // Implements scalar point-multiplication for matrices of commitment group elements
+            impl<E: PairingEngine> MulAssign<E::Fr> for Matrix<$com<E>> {
+                fn mul_assign(&mut self, other: E::Fr) {
+                    let m = self.len();
+                    let n = self[0].len();
+                    let mut smul = Vec::with_capacity(m);
+                    for i in 0..m {
+                        smul.push(Vec::with_capacity(n));
+                        for j in 0..n {
+                            let mut elem = self[i][j];
+                            elem *= other;
+                            smul[i].push(elem.clone());
+                        }
+                    }
+                    *self = smul;
+                }
             }
-        }
-        *self = smul;
+            */
+            impl<E: PairingEngine> Mat<$com<E>> for Matrix<$com<E>> {
+                type Other = E::Fr;
+
+                fn add(self, other: Self) -> Self {
+                    assert_eq!(self.len(), other.len());
+                    assert_eq!(self[0].len(), other[0].len());
+                    let m = self.len();
+                    let n = self[0].len();
+                    let mut add = Vec::with_capacity(m);
+                    for i in 0..m {
+                        add.push(Vec::with_capacity(n));
+                        for j in 0..n {
+                            add[i].push(self[i][j].clone() + other[i][j].clone());
+                        }
+                    }
+                    add
+                }
+
+                fn scalar_mul(self, other: Self::Other) -> Self {
+                    let m = self.len();
+                    let n = self[0].len();
+                    let mut smul: Matrix<$com<E>> = Vec::with_capacity(m);
+                    for i in 0..m {
+                        smul.push(Vec::with_capacity(n));
+                        for j in 0..n {
+                            smul[i].push(self[i][j].scalar_mul(&other));
+                        }
+                    }
+                    smul
+                }
+
+                fn transpose(&mut self) {
+                    let mut trans = Vec::with_capacity(self[0].len());
+                    for _ in 0..self[0].len() {
+                        trans.push(Vec::with_capacity(self.len()));
+                    }
+
+                    for row in &mut *self {
+                        for i in 0..row.len() {
+                            // Push rows onto columns
+                            trans[i].push(row[i].clone());
+                        }
+                    }
+                    *self = trans;
+                }
+
+                fn right_mul(&mut self, rhs: &Matrix<Self::Other>, is_parallel: bool) {
+                    if self.len() == 0 || self[0].len() == 0 {
+                        *self = vec![];
+                        return;
+                    }
+                    if rhs.len() == 0 || rhs[0].len() == 0 {
+                        *self = vec![];
+                        return;
+                    }
+
+                    // Check that every row in a and column in b has the same length
+                    assert_eq!(self[0].len(), rhs.len());
+                    let row_dim = self.len();
+
+                    if is_parallel {
+                        let mut rows = (0..row_dim)
+                            .into_par_iter()
+                            .map( |i| {
+                                let row = &self[i];
+                                let dim = rhs.len();
+
+                                // Perform multiplication for single row
+                                // Assuming every column in b has the same length
+                                let mut cols = (0..rhs[0].len())
+                                    .into_par_iter()
+                                    .map( |j| {
+                                        (j, (0..dim).map( |k| row[k].scalar_mul(&rhs[k][j])).sum())
+                                    })
+                                    .collect::<Vec<(usize, $com<E>)>>();
+
+                                // After computing concurrently, sort by index
+                                cols.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+                                // Strip off index and return Vec<F>
+                                let final_row = cols.into_iter()
+                                    .map( |(_, elem)| elem)
+                                    .collect();
+
+                                (i, final_row)
+                            })
+                            .collect::<Vec<(usize, Vec<$com<E>>)>>();
+
+                        // After computing concurrently, sort by index
+                        rows.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+                        // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
+                        *self = rows.into_iter()
+                            .map( |(_, row)| row)
+                            .collect();
+                    }
+                    else {
+
+                        *self = (0..row_dim)
+                            .map( |i| {
+                                let row = &self[i];
+                                let dim = rhs.len();
+
+                                // Perform matrix multiplication for single row
+                                // Assuming every column in b has the same length
+                                (0..rhs[0].len())
+                                    .map( |j| {
+                                        (0..dim).map( |k| row[k].scalar_mul(&rhs[k][j]) ).sum()
+                                    })
+                                    .collect::<Vec<$com<E>>>()
+                            })
+                            .collect::<Vec<Vec<$com<E>>>>();
+                    }
+                }
+
+                fn left_mul(&mut self, lhs: &Matrix<Self::Other>, is_parallel: bool) {
+                    if lhs.len() == 0 || lhs[0].len() == 0 {
+                        *self = vec![];
+                        return;
+                    }
+                    if self.len() == 0 || self[0].len() == 0 {
+                        *self = vec![];
+                        return;
+                    }
+
+                    // Check that every row in a and column in b has the same length
+                    assert_eq!(lhs[0].len(), self.len());
+                    let row_dim = lhs.len();
+
+                    if is_parallel {
+                        let mut rows = (0..row_dim)
+                            .into_par_iter()
+                            .map( |i| {
+                                let row = &lhs[i];
+                                let dim = self.len();
+
+                                // Perform matrix multiplication for single row
+                                let mut cols = (0..self[0].len())
+                                    .into_par_iter()
+                                    .map( |j| {
+                                        (j, (0..dim).map( |k| self[k][j].scalar_mul(&row[k]) ).sum())
+                                    })
+                                    .collect::<Vec<(usize, $com<E>)>>();
+
+                                // After computing concurrently, sort by index
+                                cols.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+                                // Strip off index and return Vec<F>
+                                let final_row = cols.into_iter()
+                                    .map( |(_, elem)| elem)
+                                    .collect();
+
+                                (i, final_row)
+                            })
+                            .collect::<Vec<(usize, Vec<$com<E>>)>>();
+
+                        // After computing concurrently, sort by index
+                        rows.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+                        // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
+                        *self = rows.into_iter()
+                            .map( |(_, row)| row)
+                            .collect();
+                    }
+                    else {
+                        *self = (0..row_dim)
+                            .map( |i| {
+                                let row = &lhs[i];
+                                let dim = self.len();
+                                (0..self[0].len())
+                                    .map( |j| {
+                                        (0..dim).map( |k| self[k][j].scalar_mul(&row[k]) ).sum()
+                                    })
+                                    .collect::<Vec<$com<E>>>()
+                            })
+                            .collect::<Vec<Vec<$com<E>>>>();
+                    }
+                }
+            }
+        )*
     }
 }
-*/
-impl<E: PairingEngine> Mat<Com1<E>> for Matrix<Com1<E>> {
-    type Other = E::Fr;
-
-    fn add(self, other: Self) -> Self {
-        assert_eq!(self.len(), other.len());
-        assert_eq!(self[0].len(), other[0].len());
-        let m = self.len();
-        let n = self[0].len();
-        let mut add = Vec::with_capacity(m);
-        for i in 0..m {
-            add.push(Vec::with_capacity(n));
-            for j in 0..n {
-                add[i].push(self[i][j].clone() + other[i][j].clone());
-            }
-        }
-        add
-    }
-
-    fn scalar_mul(&mut self, other: Self::Other) {
-        let m = self.len();
-        let n = self[0].len();
-        let mut smul: Matrix<Com1<E>> = Vec::with_capacity(m);
-        for i in 0..m {
-            smul.push(Vec::with_capacity(n));
-            for j in 0..n {
-                self[i][j].scalar_mul(other);
-            }
-        }
-    }
-
-    fn transpose(&mut self) {
-        let mut trans = Vec::with_capacity(self[0].len());
-        for _ in 0..self[0].len() {
-            trans.push(Vec::with_capacity(self.len()));
-        }
-
-        for row in &mut *self {
-            for i in 0..row.len() {
-                // Push rows onto columns
-                trans[i].push(row[i].clone());
-            }
-        }
-        *self = trans;
-    }
-
-    fn right_mul(&mut self, rhs: &Matrix<Self::Other>, is_parallel: bool) {
-        if self.len() == 0 || self[0].len() == 0 {
-            *self = vec![];
-            return;
-        }
-        if rhs.len() == 0 || rhs[0].len() == 0 {
-            *self = vec![];
-            return;
-        }
-
-        // Check that every row in a and column in b has the same length
-        assert_eq!(self[0].len(), rhs.len());
-        let row_dim = self.len();
-
-        if is_parallel {
-            let mut rows = (0..row_dim)
-                .into_par_iter()
-                .map( |i| {
-                    let row = &self[i];
-                    let dim = rhs.len();
-
-                    // Perform multiplication for single row
-                    // Assuming every column in b has the same length
-                    let mut cols = (0..rhs[0].len())
-                        .into_par_iter()
-                        .map( |j| {
-                            (j, (0..dim).map( |k| row[k].scalar_mul(rhs[k][j]) ).sum())
-                        })
-                        .collect::<Vec<(usize, Com1<E>)>>();
-
-                    // After computing concurrently, sort by index
-                    cols.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-                    // Strip off index and return Vec<F>
-                    let final_row = cols.into_iter()
-                        .map( |(_, elem)| elem)
-                        .collect();
-
-                    (i, final_row)
-                })
-                .collect::<Vec<(usize, Vec<Com1<E>>)>>();
-
-            // After computing concurrently, sort by index
-            rows.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-            // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
-            *self = rows.into_iter()
-                .map( |(_, row)| row)
-                .collect();
-        }
-        else {
-
-            *self = (0..row_dim)
-                .map( |i| {
-                    let row = &self[i];
-                    let dim = rhs.len();
-
-                    // Perform matrix multiplication for single row
-                    // Assuming every column in b has the same length
-                    (0..rhs[0].len())
-                        .map( |j| {
-                            (0..dim).map( |k| row[k].scalar_mul(rhs[k][j]) ).sum()
-                        })
-                        .collect::<Vec<Com1<E>>>()
-                })
-                .collect::<Vec<Vec<Com1<E>>>>();
-        }
-    }
-
-    fn left_mul(&mut self, lhs: &Matrix<Self::Other>, is_parallel: bool) {
-        if lhs.len() == 0 || lhs[0].len() == 0 {
-            *self = vec![];
-            return;
-        }
-        if self.len() == 0 || self[0].len() == 0 {
-            *self = vec![];
-            return;
-        }
-
-        // Check that every row in a and column in b has the same length
-        assert_eq!(lhs[0].len(), self.len());
-        let row_dim = lhs.len();
-
-        if is_parallel {
-            let mut rows = (0..row_dim)
-                .into_par_iter()
-                .map( |i| {
-                    let row = &lhs[i];
-                    let dim = self.len();
-
-                    // Perform matrix multiplication for single row
-                    let mut cols = (0..self[0].len())
-                        .into_par_iter()
-                        .map( |j| {
-                            (j, (0..dim).map( |k| self[k][j].scalar_mul(row[k]) ).sum())
-                        })
-                        .collect::<Vec<(usize, Com1<E>)>>();
-
-                    // After computing concurrently, sort by index
-                    cols.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-                    // Strip off index and return Vec<F>
-                    let final_row = cols.into_iter()
-                        .map( |(_, elem)| elem)
-                        .collect();
-
-                    (i, final_row)
-                })
-                .collect::<Vec<(usize, Vec<Com1<E>>)>>();
-
-            // After computing concurrently, sort by index
-            rows.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-            // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
-            *self = rows.into_iter()
-                .map( |(_, row)| row)
-                .collect();
-        }
-        else {
-            *self = (0..row_dim)
-                .map( |i| {
-                    let row = &lhs[i];
-                    let dim = self.len();
-                    (0..self[0].len())
-                        .map( |j| {
-                            (0..dim).map( |k| self[k][j].scalar_mul(row[k]) ).sum()
-                        })
-                        .collect::<Vec<Com1<E>>>()
-                })
-                .collect::<Vec<Vec<Com1<E>>>>();
-        }
-    }
-}
-
-/// Computes multiplication of scalar with a commitment group matrix (B1 or B2).
-pub fn group_matrix_scalar_mul<E: PairingEngine, G: AffineCurve>(scalar: &G::ScalarField, mat: &Matrix<G>) -> Matrix<G> {
-    let m = mat.len();
-    let n = mat[0].len();
-    let mut smul = Vec::with_capacity(m);
-    for i in 0..m {
-        smul.push(Vec::with_capacity(n));
-        for j in 0..n {
-            smul[i].push( mat[i][j].mul(*scalar).into_affine() );
-        }
-    }
-    smul
-}
+impl_base_commit_mats![Com1, Com2];
 
 /// Computes out-of-place transpose of a matrix.
 pub fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
@@ -1213,7 +1215,7 @@ mod tests {
         let scalar = Fr::rand(&mut rng);
         let b0 = b.0.mul(scalar);
         let b1 = b.1.mul(scalar);
-        let bres = b.clone().scalar_mul(scalar);
+        let bres = b.clone().scalar_mul(&scalar);
         let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
 
         assert_eq!(bres, bexp);
@@ -1231,7 +1233,7 @@ mod tests {
         let scalar = Fr::rand(&mut rng);
         let b0 = b.0.mul(scalar);
         let b1 = b.1.mul(scalar);
-        let bres = b.clone().scalar_mul(scalar);
+        let bres = b.clone().scalar_mul(&scalar);
         let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
 
         assert_eq!(bres, bexp);
@@ -1339,17 +1341,17 @@ mod tests {
         assert_eq!(exp, res);
     }
 
-
+    /*
     #[test]
     fn test_group_left_matrix_mul_row() {
 
         // 1 x 3 (row) vector
         let mut rng = test_rng();
         let g1gen = G1Projective::rand(&mut rng).into_affine();
-        let lhs: Vec<G1Affine> = vec![
-            g1gen,
-            g1gen.mul(field_new!(Fr, "2")).into_affine(),
-            g1gen.mul(field_new!(Fr, "3")).into_affine()
+        let lhs: Vec<Com1<F>> = vec![
+            Com1::<F>( G1Affine::zero(), g1gen ),
+            Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "2")).into_affine() ),
+            Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "3")).into_affine() )
         ];
         // 3 x 1 (column) vector
         let rhs: Matrix<Fr> = vec![
@@ -1365,7 +1367,7 @@ mod tests {
    
         assert_eq!(exp, res);
     }
-
+    */
     #[test]
     fn test_group_left_matrix_mul_entry() {
 
@@ -1464,8 +1466,9 @@ mod tests {
         assert_eq!(exp, res);
     }
 
+    // TODO: Change
     #[test]
-    fn test_matrix_transpose() {
+    fn test_scalar_matrix_transpose() {
 
         // 3 x 3 matrix
         let one = Fr::one();
@@ -1489,7 +1492,8 @@ mod tests {
 
         assert_eq!(exp, res);
     }
-
+    
+    // TODO: Change
     #[test]
     fn test_scalar_matrix_scalar_mul() {
 
@@ -1513,30 +1517,32 @@ mod tests {
     }
 
     #[test]
-    fn test_group_matrix_scalar_mul() {
+    fn test_com_matrix_scalar_mul() {
 
         let scalar: Fr = field_new!(Fr, "3");
 
-        // 3 x 3 matrix {{1,2,3}, {4,5,6}, {7,8,9}}
+        // 3 x 3 matrix of Com1 elements (0, 3)
         let mut rng = test_rng();
         let g1gen = G1Projective::rand(&mut rng).into_affine();
-        let mut mat: Matrix<G1Affine> = Vec::with_capacity(3);
+        let mut mat: Matrix<Com1<F>> = Vec::with_capacity(3);
+
         for i in 0..3 {
             mat.push(Vec::with_capacity(3));
             for _ in 0..3 {
 
-                mat[i].push(g1gen.mul(field_new!(Fr,"3")).into_affine());
+                mat[i].push( Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr,"1")).into_affine() ) );
             }
         }
 
-        let mut exp: Matrix<G1Affine> = Vec::with_capacity(3);
+        let mut exp: Matrix<Com1<F>> = Vec::with_capacity(3);
         for i in 0..3 {
             exp.push(Vec::with_capacity(3));
             for _ in 0..3 {
-                exp[i].push(g1gen.mul(field_new!(Fr,"9")).into_affine());
+                exp[i].push( Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr,"3")).into_affine() ) );
             }
         }
-        let res: Matrix<G1Affine> = group_matrix_scalar_mul::<F,G1Affine>(&scalar, &mat);
+
+        let res: Matrix<Com1<F>> = mat.scalar_mul( scalar );
 
         assert_eq!(exp, res);
     }
