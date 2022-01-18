@@ -1026,6 +1026,207 @@ macro_rules! impl_base_commit_mats {
 }
 impl_base_commit_mats![Com1, Com2];
 
+// TODO: combine with commitment matrix definition (i.e. if Com1, Com2 can be represented by
+// fields, with multiplication wrt its scalar field. Or match/switch for minor differences)
+/*
+// Implements scalar point-multiplication for matrices of commitment group elements
+impl MulAssign<F> for Matrix<F> {
+    fn mul_assign(&mut self, other: F) {
+        let m = self.len();
+        let n = self[0].len();
+        let mut smul = Vec::with_capacity(m);
+        for i in 0..m {
+            smul.push(Vec::with_capacity(n));
+            for j in 0..n {
+                let mut elem = self[i][j];
+                elem *= other;
+                smul[i].push(elem.clone());
+            }
+        }
+        *self = smul;
+    }
+}
+*/
+impl<F: Field> Mat<F> for Matrix<F> {
+    type Other = F;
+
+    fn add(self, other: Self) -> Self {
+        assert_eq!(self.len(), other.len());
+        assert_eq!(self[0].len(), other[0].len());
+        let m = self.len();
+        let n = self[0].len();
+        let mut add = Vec::with_capacity(m);
+        for i in 0..m {
+            add.push(Vec::with_capacity(n));
+            for j in 0..n {
+                add[i].push(self[i][j].clone() + other[i][j].clone());
+            }
+        }
+        add
+    }
+
+    fn scalar_mul(self, other: Self::Other) -> Self {
+        let m = self.len();
+        let n = self[0].len();
+        let mut smul: Matrix<F> = Vec::with_capacity(m);
+        for i in 0..m {
+            smul.push(Vec::with_capacity(n));
+            for j in 0..n {
+                smul[i].push(self[i][j] * other);
+            }
+        }
+        smul
+    }
+
+    fn transpose(&mut self) {
+        let mut trans = Vec::with_capacity(self[0].len());
+        for _ in 0..self[0].len() {
+            trans.push(Vec::with_capacity(self.len()));
+        }
+
+        for row in &mut *self {
+            for i in 0..row.len() {
+                // Push rows onto columns
+                trans[i].push(row[i].clone());
+            }
+        }
+        *self = trans;
+    }
+
+    fn right_mul(&mut self, rhs: &Matrix<Self::Other>, is_parallel: bool) {
+        if self.len() == 0 || self[0].len() == 0 {
+            *self = vec![];
+            return;
+        }
+        if rhs.len() == 0 || rhs[0].len() == 0 {
+            *self = vec![];
+            return;
+        }
+
+        // Check that every row in a and column in b has the same length
+        assert_eq!(self[0].len(), rhs.len());
+        let row_dim = self.len();
+
+        if is_parallel {
+            let mut rows = (0..row_dim)
+                .into_par_iter()
+                .map( |i| {
+                    let row = &self[i];
+                    let dim = rhs.len();
+
+                    // Perform multiplication for single row
+                    // Assuming every column in b has the same length
+                    let mut cols = (0..rhs[0].len())
+                        .into_par_iter()
+                        .map( |j| {
+                            (j, (0..dim).map( |k| row[k] * rhs[k][j] ).sum())
+                        })
+                        .collect::<Vec<(usize, F)>>();
+
+                    // After computing concurrently, sort by index
+                    cols.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+                    // Strip off index and return Vec<F>
+                    let final_row = cols.into_iter()
+                        .map( |(_, elem)| elem)
+                        .collect();
+
+                    (i, final_row)
+                })
+                .collect::<Vec<(usize, Vec<F>)>>();
+
+            // After computing concurrently, sort by index
+            rows.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+            // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
+            *self = rows.into_iter()
+                .map( |(_, row)| row)
+                .collect();
+        }
+        else {
+
+            *self = (0..row_dim)
+                .map( |i| {
+                    let row = &self[i];
+                    let dim = rhs.len();
+
+                    // Perform matrix multiplication for single row
+                    // Assuming every column in b has the same length
+                    (0..rhs[0].len())
+                        .map( |j| {
+                            (0..dim).map( |k| row[k] * rhs[k][j] ).sum()
+                        })
+                        .collect::<Vec<F>>()
+                })
+                .collect::<Vec<Vec<F>>>();
+        }
+    }
+
+    fn left_mul(&mut self, lhs: &Matrix<Self::Other>, is_parallel: bool) {
+        if lhs.len() == 0 || lhs[0].len() == 0 {
+            *self = vec![];
+            return;
+        }
+        if self.len() == 0 || self[0].len() == 0 {
+            *self = vec![];
+            return;
+        }
+
+        // Check that every row in a and column in b has the same length
+        assert_eq!(lhs[0].len(), self.len());
+        let row_dim = lhs.len();
+
+        if is_parallel {
+            let mut rows = (0..row_dim)
+                .into_par_iter()
+                .map( |i| {
+                    let row = &lhs[i];
+                    let dim = self.len();
+
+                    // Perform matrix multiplication for single row
+                    let mut cols = (0..self[0].len())
+                        .into_par_iter()
+                        .map( |j| {
+                            (j, (0..dim).map( |k| self[k][j] * row[k] ).sum())
+                        })
+                        .collect::<Vec<(usize, F)>>();
+
+                    // After computing concurrently, sort by index
+                    cols.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+                    // Strip off index and return Vec<F>
+                    let final_row = cols.into_iter()
+                        .map( |(_, elem)| elem)
+                        .collect();
+
+                    (i, final_row)
+                })
+                .collect::<Vec<(usize, Vec<F>)>>();
+
+            // After computing concurrently, sort by index
+            rows.par_sort_by(|left, right| left.0.cmp(&right.0));
+
+            // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
+            *self = rows.into_iter()
+                .map( |(_, row)| row)
+                .collect();
+        }
+        else {
+            *self = (0..row_dim)
+                .map( |i| {
+                    let row = &lhs[i];
+                    let dim = self.len();
+                    (0..self[0].len())
+                        .map( |j| {
+                            (0..dim).map( |k| self[k][j] * row[k] ).sum()
+                        })
+                        .collect::<Vec<F>>()
+                })
+                .collect::<Vec<Vec<F>>>();
+        }
+    }
+}
+
 /// Computes out-of-place transpose of a matrix.
 pub fn matrix_transpose<F: Clone>(mat: &Matrix<F>) -> Matrix<F> {
     let mut trans = Vec::with_capacity(mat[0].len());
