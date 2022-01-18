@@ -2,7 +2,7 @@ use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
 use ark_ff::{Zero, One, Field};
 use ark_std::{
     fmt::Debug,
-    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign}
+    ops::{Add, AddAssign, MulAssign, Neg, Sub, SubAssign}
 };
 use rayon::prelude::*;
 
@@ -29,6 +29,7 @@ pub trait B<E: PairingEngine>:
 /// Provides linear maps and vector conversions for the base of the GS commitment group.
 pub trait B1<E: PairingEngine>:
     B<E>
+    + MulAssign<E::Fr>
     + From<Matrix<E::G1Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G1Affine>;
@@ -44,6 +45,7 @@ pub trait B1<E: PairingEngine>:
 /// Provides linear maps and vector conversions for the extension of the GS commitment group.
 pub trait B2<E: PairingEngine>:
     B<E>
+    + MulAssign<E::Fr>
     + From<Matrix<E::G2Affine>>
 {
     fn as_col_vec(&self) -> Matrix<E::G2Affine>;
@@ -216,6 +218,20 @@ macro_rules! impl_base_commit_groups {
                         self.0 + -other.0,
                         self.1 + -other.1
                     );
+                }
+            }
+            // Entry-wise scalar point-multiplication
+            impl <E: PairingEngine> MulAssign<E::Fr> for $com<E> {
+                fn mul_assign(&mut self, rhs: E::Fr) {
+                    
+                    let mut s1p = self.0.into_projective();
+                    let mut s2p = self.1.into_projective();  
+                    s1p *= rhs;
+                    s2p *= rhs;
+                    *self = Self (
+                        s1p.into_affine().clone(),
+                        s2p.into_affine().clone()
+                    )
                 }
             }
         )*
@@ -936,6 +952,47 @@ mod tests {
 
         assert_eq!(zero, ComT::<F>::zero());
         assert!(zero.is_zero());
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_B1_scalar_mult() {
+        let mut rng = test_rng();
+        let b = Com1::<F>(
+            G1Projective::rand(&mut rng).into_affine(),
+            G1Projective::rand(&mut rng).into_affine()
+        );
+        let scalar = Fr::rand(&mut rng);
+        let mut b0 = b.0.into_projective();
+        let mut b1 = b.1.into_projective();
+        b0 *= scalar;
+        b1 *= scalar;
+        let mut bres = b;
+        bres *= scalar;
+        let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
+
+        assert_eq!(bres, bexp);
+    }
+
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn test_B2_scalar_mult() {
+        let mut rng = test_rng();
+        let b = Com1::<F>(
+            G1Projective::rand(&mut rng).into_affine(),
+            G1Projective::rand(&mut rng).into_affine()
+        );
+        let scalar = Fr::rand(&mut rng);
+        let mut b0 = b.0.into_projective();
+        let mut b1 = b.1.into_projective();
+        b0 *= scalar;
+        b1 *= scalar;
+        let mut bres = b;
+        bres *= scalar;
+        let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
+
+        assert_eq!(bres, bexp);
     }
 
     #[test]
