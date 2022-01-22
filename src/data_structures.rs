@@ -32,6 +32,7 @@ pub type Matrix<E> = Vec<Vec<E>>;
 /// Encapsulates arithmetic traits for Groth-Sahai's bilinear group for commitments.
 pub trait B<E: PairingEngine>:
     Eq
+    + Copy
     + Clone
     + Debug
     + Zero
@@ -110,15 +111,15 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
 
 // TODO: Expose randomness? (see example data_structures in Arkworks)
 /// Base B1 for the commitment group in the SXDH instantiation. 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Com1<E: PairingEngine>(pub E::G1Affine, pub E::G1Affine);
 
 /// Extension B2 for the commitment group in the SXDH instantiation.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Com2<E: PairingEngine>(pub E::G2Affine, pub E::G2Affine);
 
 /// Target BT for the commitment group in the SXDH instantiation.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ComT<E: PairingEngine>(pub E::Fqk, pub E::Fqk, pub E::Fqk, pub E::Fqk);
 
 // TODO: Move to matrix trait impl (Into vec?)
@@ -985,7 +986,7 @@ impl<F: Field> Mat<F> for Matrix<F> {
 #[cfg(test)]
 mod tests {
 
-    mod com_group_SXDH {
+    mod SXDH_com_group {
 
         use ark_bls12_381::{Bls12_381 as F};
         use ark_ff::{UniformRand, field_new};
@@ -1002,25 +1003,86 @@ mod tests {
         type Fqk = <F as PairingEngine>::Fqk;
         type Fr = <F as PairingEngine>::Fr;
 
+
         #[allow(non_snake_case)]
         #[test]
-        fn test_B_pairing_rand() {
+        fn test_B1_neg() {
             let mut rng = test_rng();
-            let b1 = Com1::<F>(
+            let b = Com1::<F>(
                 G1Projective::rand(&mut rng).into_affine(),
                 G1Projective::rand(&mut rng).into_affine()
             );
-            let b2 = Com2::<F>(
+            let bneg = -b;
+            let zero = b + bneg;
+
+            assert_eq!(zero, Com1::<F>::zero());
+            assert!(zero.is_zero());
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B2_neg() {
+            let mut rng = test_rng();
+            let b = Com2::<F>(
                 G2Projective::rand(&mut rng).into_affine(),
                 G2Projective::rand(&mut rng).into_affine()
             );
-            let bt = ComT::pairing(b1.clone(), b2.clone());
+            let bneg = -b;
+            let zero = b + bneg;
 
-            assert_eq!(bt.0, F::pairing::<G1Affine, G2Affine>(b1.0.clone(), b2.0.clone()));
-            assert_eq!(bt.1, F::pairing::<G1Affine, G2Affine>(b1.0.clone(), b2.1.clone()));
-            assert_eq!(bt.2, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.0.clone()));
-            assert_eq!(bt.3, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.1.clone()));
-        
+            assert_eq!(zero, Com2::<F>::zero());
+            assert!(zero.is_zero());
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_BT_neg() {
+            let mut rng = test_rng();
+            let b = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+            );
+            let bneg = -b;
+            let zero = b + bneg;
+
+            assert_eq!(zero, ComT::<F>::zero());
+            assert!(zero.is_zero());
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B1_scalar_mul() {
+            let mut rng = test_rng();
+            let b = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let scalar = Fr::rand(&mut rng);
+            let b0 = b.0.mul(scalar);
+            let b1 = b.1.mul(scalar);
+            let bres = b.scalar_mul(&scalar);
+            let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
+
+            assert_eq!(bres, bexp);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B2_scalar_mul() {
+            let mut rng = test_rng();
+            let b = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let scalar = Fr::rand(&mut rng);
+            let b0 = b.0.mul(scalar);
+            let b1 = b.1.mul(scalar);
+            let bres = b.scalar_mul(&scalar);
+            let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
+
+            assert_eq!(bres, bexp);
         }
 
         #[allow(non_snake_case)]
@@ -1085,84 +1147,22 @@ mod tests {
 
         #[allow(non_snake_case)]
         #[test]
-        fn test_B1_neg() {
+        fn test_B_pairing_rand() {
             let mut rng = test_rng();
-            let b = Com1::<F>(
+            let b1 = Com1::<F>(
                 G1Projective::rand(&mut rng).into_affine(),
                 G1Projective::rand(&mut rng).into_affine()
             );
-            let bneg = -b.clone();
-            let zero = b.clone() + bneg.clone();
-
-            assert_eq!(zero, Com1::<F>::zero());
-            assert!(zero.is_zero());
-        }
-
-        #[allow(non_snake_case)]
-        #[test]
-        fn test_B2_neg() {
-            let mut rng = test_rng();
-            let b = Com2::<F>(
+            let b2 = Com2::<F>(
                 G2Projective::rand(&mut rng).into_affine(),
                 G2Projective::rand(&mut rng).into_affine()
             );
-            let bneg = -b.clone();
-            let zero = b.clone() + bneg.clone();
+            let bt = ComT::pairing(b1.clone(), b2.clone());
 
-            assert_eq!(zero, Com2::<F>::zero());
-            assert!(zero.is_zero());
-        }
-
-        #[allow(non_snake_case)]
-        #[test]
-        fn test_BT_neg() {
-            let mut rng = test_rng();
-            let b = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-            );
-            let bneg = -b.clone();
-            let zero = b.clone() + bneg.clone();
-
-            assert_eq!(zero, ComT::<F>::zero());
-            assert!(zero.is_zero());
-        }
-
-        #[allow(non_snake_case)]
-        #[test]
-        fn test_B1_scalar_mul() {
-            let mut rng = test_rng();
-            let b = Com1::<F>(
-                G1Projective::rand(&mut rng).into_affine(),
-                G1Projective::rand(&mut rng).into_affine()
-            );
-            let scalar = Fr::rand(&mut rng);
-            let b0 = b.0.mul(scalar);
-            let b1 = b.1.mul(scalar);
-            let bres = b.scalar_mul(&scalar);
-            let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
-
-            assert_eq!(bres, bexp);
-        }
-
-
-        #[allow(non_snake_case)]
-        #[test]
-        fn test_B2_scalar_mul() {
-            let mut rng = test_rng();
-            let b = Com1::<F>(
-                G1Projective::rand(&mut rng).into_affine(),
-                G1Projective::rand(&mut rng).into_affine()
-            );
-            let scalar = Fr::rand(&mut rng);
-            let b0 = b.0.mul(scalar);
-            let b1 = b.1.mul(scalar);
-            let bres = b.scalar_mul(&scalar);
-            let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
-
-            assert_eq!(bres, bexp);
+            assert_eq!(bt.0, F::pairing::<G1Affine, G2Affine>(b1.0.clone(), b2.0.clone()));
+            assert_eq!(bt.1, F::pairing::<G1Affine, G2Affine>(b1.0.clone(), b2.1.clone()));
+            assert_eq!(bt.2, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.0.clone()));
+            assert_eq!(bt.3, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.1.clone()));        
         }
 
         #[test]
@@ -1187,7 +1187,7 @@ mod tests {
         }
 
         #[test]
-        fn test_from_vec_and_matrix() {
+        fn test_from_matrix() {
 
             let mut rng = test_rng();
             let b1_vec = vec![
@@ -1225,22 +1225,6 @@ mod tests {
         }
 
         #[test]
-        fn test_col_vec_to_vec() {
-            let mat = vec![vec![field_new!(Fr, "1")], vec![field_new!(Fr, "2")], vec![field_new!(Fr, "3")]];
-            let vec: Vec<Fr> = col_vec_to_vec(&mat);
-            let exp = vec![field_new!(Fr, "1"), field_new!(Fr, "2"), field_new!(Fr, "3")];
-            assert_eq!(vec, exp);
-        }
-
-        #[test]
-        fn test_vec_to_col_vec() {
-            let vec = vec![field_new!(Fr, "1"), field_new!(Fr, "2"), field_new!(Fr, "3")];
-            let mat: Matrix<Fr> = vec_to_col_vec(&vec);
-            let exp = vec![vec![field_new!(Fr, "1")], vec![field_new!(Fr, "2")], vec![field_new!(Fr, "3")]];
-            assert_eq!(mat, exp);
-        }
-
-        #[test]
         fn test_batched_linear_maps() {
             let mut rng = test_rng();
             let vec_g1 = vec![G1Projective::rand(&mut rng).into_affine(), G1Projective::rand(&mut rng).into_affine()];
@@ -1269,6 +1253,7 @@ mod tests {
             assert_eq!(vec_b2[1], Com2::<F>::scalar_linear_map(&vec_scalar[1], &key));
         }
 
+        // TODO: Conver to Integration tests and test linear maps individually
         #[allow(non_snake_case)]
         #[test]
         fn test_PPE_linear_maps() {
@@ -1407,6 +1392,22 @@ mod tests {
         type GT = <F as PairingEngine>::Fqk;
         type Fqk = <F as PairingEngine>::Fqk;
         type Fr = <F as PairingEngine>::Fr;
+
+        #[test]
+        fn test_col_vec_to_vec() {
+            let mat = vec![vec![field_new!(Fr, "1")], vec![field_new!(Fr, "2")], vec![field_new!(Fr, "3")]];
+            let vec: Vec<Fr> = col_vec_to_vec(&mat);
+            let exp = vec![field_new!(Fr, "1"), field_new!(Fr, "2"), field_new!(Fr, "3")];
+            assert_eq!(vec, exp);
+        }
+
+        #[test]
+        fn test_vec_to_col_vec() {
+            let vec = vec![field_new!(Fr, "1"), field_new!(Fr, "2"), field_new!(Fr, "3")];
+            let mat: Matrix<Fr> = vec_to_col_vec(&vec);
+            let exp = vec![vec![field_new!(Fr, "1")], vec![field_new!(Fr, "2")], vec![field_new!(Fr, "3")]];
+            assert_eq!(mat, exp);
+        }
 
         #[test]
         fn test_field_matrix_left_mul_entry() {
