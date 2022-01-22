@@ -488,10 +488,10 @@ impl<E: PairingEngine> Sub<ComT<E>> for ComT<E> {
     #[inline]
     fn sub(self, other: Self) -> Self {
         Self (
-            self.0 * (E::Fqk::one() / other.0),
-            self.1 * (E::Fqk::one() / other.1),
-            self.2 * (E::Fqk::one() / other.2),
-            self.3 * (E::Fqk::one() / other.3)
+            self.0 / other.0,
+            self.1 / other.1,
+            self.2 / other.2,
+            self.3 / other.3
         )
     }
 }
@@ -500,10 +500,10 @@ impl<E: PairingEngine> SubAssign<ComT<E>> for ComT<E> {
     #[inline]
     fn sub_assign(&mut self, other: Self) {
         *self = Self (
-            self.0 * (E::Fqk::one() / other.0),
-            self.1 * (E::Fqk::one() / other.1),
-            self.2 * (E::Fqk::one() / other.2),
-            self.3 * (E::Fqk::one() / other.3)
+            self.0 / other.0,
+            self.1 / other.1,
+            self.2 / other.2,
+            self.3 / other.3
         );
     }
 }
@@ -986,10 +986,11 @@ impl<F: Field> Mat<F> for Matrix<F> {
 #[cfg(test)]
 mod tests {
 
+    #[allow(non_snake_case)]
     mod SXDH_com_group {
 
         use ark_bls12_381::{Bls12_381 as F};
-        use ark_ff::{UniformRand, field_new};
+        use ark_ff::UniformRand;
         use ark_ec::ProjectiveCurve;
         use ark_std::test_rng;
 
@@ -999,10 +1000,206 @@ mod tests {
         type G1Projective = <F as PairingEngine>::G1Projective;
         type G2Affine = <F as PairingEngine>::G2Affine;
         type G2Projective = <F as PairingEngine>::G2Projective;
-        type GT = <F as PairingEngine>::Fqk;
         type Fqk = <F as PairingEngine>::Fqk;
         type Fr = <F as PairingEngine>::Fr;
 
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B1_add_zero() {
+            let mut rng = test_rng();
+            let a = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let zero = Com1::<F>(
+                G1Affine::zero(),
+                G1Affine::zero()
+            );
+            let asub = a + zero;
+
+            assert_eq!(zero, Com1::<F>::zero());
+            assert!(zero.is_zero());
+            assert_eq!(a, asub);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B2_add_zero() {
+            let mut rng = test_rng();
+            let a = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine()
+            );
+            let zero = Com2::<F>(
+                G2Affine::zero(),
+                G2Affine::zero()
+            );
+            let asub = a + zero;
+
+            assert_eq!(zero, Com2::<F>::zero());
+            assert!(zero.is_zero());
+            assert_eq!(a, asub);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_BT_add_zero() {
+            let mut rng = test_rng();
+            let a = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng)
+            );
+            let zero = ComT::<F>(
+                Fqk::one(),
+                Fqk::one(),
+                Fqk::one(),
+                Fqk::one()
+            );
+            let asub = a + zero;
+
+            assert_eq!(zero, ComT::<F>::zero());
+            assert!(zero.is_zero());
+            assert_eq!(a, asub);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B1_add() {
+            let mut rng = test_rng();
+            let a = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let b = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let ab = a + b;
+            let ba = b + a;
+
+            assert_eq!(ab, Com1::<F>(a.0 + b.0, a.1 + b.1));
+            assert_eq!(ab, ba);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B2_add() {
+            let mut rng = test_rng();
+            let a = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine()
+            );
+            let b = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine()
+            );
+            let ab = a + b;
+            let ba = b + a;
+
+            assert_eq!(ab, Com2::<F>(a.0 + b.0, a.1 + b.1));
+            assert_eq!(ab, ba);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_BT_add() {
+            let mut rng = test_rng();
+            let a = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng)
+            );
+            let b = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng)
+            );
+            let ab = a + b;
+            let ba = b + a;
+
+            assert_eq!(ab, ComT::<F>(a.0 * b.0, a.1 * b.1, a.2 * b.2, a.3 * b.3));
+            assert_eq!(ab, ba);
+        }
+
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B1_sum() {
+            let mut rng = test_rng();
+            let a = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let b = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let c = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+
+            let abc_vec = vec![a, b, c];
+            let abc: Com1<F> = abc_vec.into_iter().sum();
+
+            assert_eq!(abc, a + b + c);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B2_sum() {
+            let mut rng = test_rng();
+            let a = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine()
+            );
+            let b = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine()
+            );
+            let c = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine()
+            );
+
+            let abc_vec = vec![a, b, c];
+            let abc: Com2<F> = abc_vec.into_iter().sum();
+
+            assert_eq!(abc, a + b + c);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_BT_sum() {
+            let mut rng = test_rng();
+            let a = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng)
+            );
+            let b = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng)
+            );
+            let c = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng)
+            );
+
+            let abc_vec = vec![a, b, c];
+            let abc: ComT<F> = abc_vec.into_iter().sum();
+
+            assert_eq!(abc, a + b + c);
+        }
 
         #[allow(non_snake_case)]
         #[test]
@@ -1015,7 +1212,6 @@ mod tests {
             let bneg = -b;
             let zero = b + bneg;
 
-            assert_eq!(zero, Com1::<F>::zero());
             assert!(zero.is_zero());
         }
 
@@ -1030,7 +1226,6 @@ mod tests {
             let bneg = -b;
             let zero = b + bneg;
 
-            assert_eq!(zero, Com2::<F>::zero());
             assert!(zero.is_zero());
         }
 
@@ -1047,10 +1242,70 @@ mod tests {
             let bneg = -b;
             let zero = b + bneg;
 
-            assert_eq!(zero, ComT::<F>::zero());
             assert!(zero.is_zero());
         }
 
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B1_sub() {
+            let mut rng = test_rng();
+            let a = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let b = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine()
+            );
+            let ab = a - b;
+            let ba = b - a;
+
+            assert_eq!(ab, Com1::<F>(a.0 + -b.0, a.1 + -b.1));
+            assert_eq!(ab, -ba);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B2_sub() {
+            let mut rng = test_rng();
+            let a = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine()
+            );
+            let b = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine()
+            );
+            let ab = a - b;
+            let ba = b - a;
+
+            assert_eq!(ab, Com2::<F>(a.0 + -b.0, a.1 + -b.1));
+            assert_eq!(ab, -ba);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_BT_sub() {
+            let mut rng = test_rng();
+            let a = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng)
+            );
+            let b = ComT::<F>(
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng),
+                Fqk::rand(&mut rng)
+            );
+            let ab = a - b;
+            let ba = b - a;
+
+            assert_eq!(ab, ComT::<F>(a.0 / b.0, a.1 / b.1, a.2 / b.2, a.3 / b.3));
+            assert_eq!(ab, -ba);
+        }
+        
         #[allow(non_snake_case)]
         #[test]
         fn test_B1_scalar_mul() {
@@ -1099,10 +1354,10 @@ mod tests {
             );        
             let bt = ComT::pairing(b1.clone(), b2.clone());
 
-            assert_eq!(bt.0, GT::one());
-            assert_eq!(bt.1, GT::one());
-            assert_eq!(bt.2, GT::one());
-            assert_eq!(bt.3, GT::one());
+            assert_eq!(bt.0, Fqk::one());
+            assert_eq!(bt.1, Fqk::one());
+            assert_eq!(bt.2, Fqk::one());
+            assert_eq!(bt.3, Fqk::one());
         }
 
         #[allow(non_snake_case)]
@@ -1119,10 +1374,10 @@ mod tests {
             );        
             let bt = ComT::pairing(b1.clone(), b2.clone());
 
-            assert_eq!(bt.0, GT::one());
-            assert_eq!(bt.1, GT::one());
-            assert_eq!(bt.2, GT::one());
-            assert_eq!(bt.3, GT::one());
+            assert_eq!(bt.0, Fqk::one());
+            assert_eq!(bt.1, Fqk::one());
+            assert_eq!(bt.2, Fqk::one());
+            assert_eq!(bt.3, Fqk::one());
         }
 
         #[allow(non_snake_case)]
@@ -1139,9 +1394,9 @@ mod tests {
             );
             let bt = ComT::pairing(b1.clone(), b2.clone());
 
-            assert_eq!(bt.0, GT::one());
-            assert_eq!(bt.1, GT::one());
-            assert_eq!(bt.2, GT::one());
+            assert_eq!(bt.0, Fqk::one());
+            assert_eq!(bt.1, Fqk::one());
+            assert_eq!(bt.2, Fqk::one());
             assert_eq!(bt.3, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.1.clone()));
         }
 
@@ -1387,10 +1642,9 @@ mod tests {
 
         type G1Affine = <F as PairingEngine>::G1Affine;
         type G1Projective = <F as PairingEngine>::G1Projective;
-        type G2Affine = <F as PairingEngine>::G2Affine;
-        type G2Projective = <F as PairingEngine>::G2Projective;
-        type GT = <F as PairingEngine>::Fqk;
-        type Fqk = <F as PairingEngine>::Fqk;
+//        type G2Affine = <F as PairingEngine>::G2Affine;
+//        type G2Projective = <F as PairingEngine>::G2Projective;
+//        type Fqk = <F as PairingEngine>::Fqk;
         type Fr = <F as PairingEngine>::Fr;
 
         #[test]
@@ -1570,7 +1824,7 @@ mod tests {
             assert_eq!(exp, res);
         }
 
-
+        #[allow(non_snake_case)]
         #[test]
         fn test_B1_matrix_left_mul_entry() {
 
@@ -1596,6 +1850,7 @@ mod tests {
             assert_eq!(exp, res);
         }
 
+        #[allow(non_snake_case)]
         #[test]
         fn test_B1_matrix_right_mul_entry() {
 
