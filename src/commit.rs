@@ -11,9 +11,6 @@ use ark_std::{
 use crate::data_structures::*;
 use crate::generator::CRS;
 
-// TODO: Perform individual commitments as well
-
-
 /// Commit a single [`G1`](ark_ec::PairingEngine::G1Affine) element to [`B1`](crate::data_structures::Com1).
 pub fn commit_G1<CR, E>(xvar: &E::G1Affine, key: &CRS<E>, rng: &mut CR) -> Com1<E>
 where
@@ -37,7 +34,7 @@ where
     let m = xvars.len();
     let mut R: Matrix<E::Fr> = Vec::with_capacity(m);
     for _ in 0..m {
-        R.push(vec![E::Fr::rand(rng); 2]);
+        R.push(vec![E::Fr::rand(rng), E::Fr::rand(rng)]);
     }
 
     // i_1(X) = [ (O, X_1), ..., (O, X_m) ] (m x 1 matrix)
@@ -109,7 +106,7 @@ where
     let n = yvars.len();
     let mut S: Matrix<E::Fr> = Vec::with_capacity(n);
     for _ in 0..n {
-        S.push(vec![E::Fr::rand(rng); 2]);
+        S.push(vec![E::Fr::rand(rng), E::Fr::rand(rng)]);
     }
 
     // i_2(Y) = [ (O, Y_1), ..., (O, Y_m) ] (n x 1 matrix)
@@ -156,4 +153,160 @@ where
     let coms: Matrix<Com2<E>> = slin_y.add(&sv);
 
     col_vec_to_vec(&coms)
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+
+    use ark_bls12_381::{Bls12_381 as F};
+    use ark_ec::PairingEngine;
+    use ark_ec::{AffineCurve, ProjectiveCurve};
+    use ark_ff::{One, field_new};
+    use ark_std::test_rng;
+
+    use super::*;
+
+    type G1Affine = <F as PairingEngine>::G1Affine;
+    type G2Affine = <F as PairingEngine>::G2Affine;
+    type Fr = <F as PairingEngine>::Fr;
+
+    // Uses an affine group generator to produce an affine group element represented by the numeric string.
+    macro_rules! affine_group_new {
+        ($gen:expr, $strnum:tt) => {
+            $gen.mul(field_new!(Fr, $strnum)).into_affine()
+        }
+    }
+
+    // Uses an affine group generator to produce a projective group element represented by the numeric string.
+    #[allow(unused_macros)]
+    macro_rules! projective_group_new {
+        ($gen:expr, $strnum:tt) => {
+            $gen.mul(field_new!(Fr, $strnum))
+        }
+    }
+
+    #[test]
+    fn test_commit_G1_batching() {
+
+        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        let mut rng = test_rng();
+        let mut rng2 = test_rng();
+
+        let crs = CRS::<F>::generate_crs(&mut rng);
+        let rngsync1 = Fr::rand(&mut rng);
+
+        let xvars: Vec<G1Affine> = vec![
+            crs.g1_gen,
+            affine_group_new!(crs.g1_gen, "2"),
+            affine_group_new!(crs.g1_gen, "3"),
+        ];
+        let exp: Vec<Com1<F>> = vec![
+            commit_G1(&xvars[0], &crs, &mut rng),
+            commit_G1(&xvars[1], &crs, &mut rng),
+            commit_G1(&xvars[2], &crs, &mut rng),
+        ];
+
+        // Mock the use of CRS so both RNGs are at the same point
+        let _ = CRS::<F>::generate_crs(&mut rng2);
+        let rngsync2 = Fr::rand(&mut rng2);
+        assert_eq!(rngsync1, rngsync2);
+
+        let res: Vec<Com1<F>> = batch_commit_G1(&xvars, &crs, &mut rng2);
+
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_commit_G2_batching() {
+
+        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        let mut rng = test_rng();
+        let mut rng2 = test_rng();
+
+        let crs = CRS::<F>::generate_crs(&mut rng);
+        let rngsync1 = Fr::rand(&mut rng);
+
+        let yvars: Vec<G2Affine> = vec![
+            crs.g2_gen,
+            affine_group_new!(crs.g2_gen, "2"),
+            affine_group_new!(crs.g2_gen, "3"),
+        ];
+        let exp: Vec<Com2<F>> = vec![
+            commit_G2(&yvars[0], &crs, &mut rng),
+            commit_G2(&yvars[1], &crs, &mut rng),
+            commit_G2(&yvars[2], &crs, &mut rng),
+        ];
+
+        // Mock the use of CRS so both RNGs are at the same point
+        let _ = CRS::<F>::generate_crs(&mut rng2);
+        let rngsync2 = Fr::rand(&mut rng2);
+        assert_eq!(rngsync1, rngsync2);
+
+        let res: Vec<Com2<F>> = batch_commit_G2(&yvars, &crs, &mut rng2);
+
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_commit_scalar_B1_batching() {
+
+        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        let mut rng = test_rng();
+        let mut rng2 = test_rng();
+
+        let crs = CRS::<F>::generate_crs(&mut rng);
+        let rngsync1 = Fr::rand(&mut rng);
+
+        let scalar_xvars: Vec<Fr> = vec![
+            Fr::one(),
+            field_new!(Fr, "2"),
+            field_new!(Fr, "3"),
+        ];
+        let exp: Vec<Com1<F>> = vec![
+            commit_scalar_to_B1(&scalar_xvars[0], &crs, &mut rng),
+            commit_scalar_to_B1(&scalar_xvars[1], &crs, &mut rng),
+            commit_scalar_to_B1(&scalar_xvars[2], &crs, &mut rng),
+        ];
+
+        // Mock the use of CRS so both RNGs are at the same point
+        let _ = CRS::<F>::generate_crs(&mut rng2);
+        let rngsync2 = Fr::rand(&mut rng2);
+        assert_eq!(rngsync1, rngsync2);
+
+        let res: Vec<Com1<F>> = batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng2);
+
+        assert_eq!(exp, res);
+    }
+
+    #[test]
+    fn test_commit_scalar_B2_batching() {
+
+        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        let mut rng = test_rng();
+        let mut rng2 = test_rng();
+
+        let crs = CRS::<F>::generate_crs(&mut rng);
+        let rngsync1 = Fr::rand(&mut rng);
+
+        let scalar_yvars: Vec<Fr> = vec![
+            Fr::one(),
+            field_new!(Fr, "2"),
+            field_new!(Fr, "3"),
+        ];
+        let exp: Vec<Com2<F>> = vec![
+            commit_scalar_to_B2(&scalar_yvars[0], &crs, &mut rng),
+            commit_scalar_to_B2(&scalar_yvars[1], &crs, &mut rng),
+            commit_scalar_to_B2(&scalar_yvars[2], &crs, &mut rng),
+        ];
+
+        // Mock the use of CRS so both RNGs are at the same point
+        let _ = CRS::<F>::generate_crs(&mut rng2);
+        let rngsync2 = Fr::rand(&mut rng2);
+        assert_eq!(rngsync1, rngsync2);
+
+        let res: Vec<Com2<F>> = batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng2);
+
+        assert_eq!(exp, res);
+    }
 }

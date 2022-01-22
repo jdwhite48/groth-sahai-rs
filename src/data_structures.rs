@@ -36,25 +36,6 @@ use rayon::prelude::*;
 
 use crate::generator::CRS;
 
-
-// Uses an affine group generator to produce an affine group element represented by the numeric string.
-#[allow(unused_macros)]
-//#[macro_export]
-macro_rules! affine_group_new {
-    ($gen:expr, $strnum:tt) => {
-        $gen.mul(field_new!(Fr, $strnum)).into_affine()
-    }
-}
-
-// Uses an affine group generator to produce a projective group element represented by the numeric string.
-#[allow(unused_macros)]
-//#[macro_export]
-macro_rules! projective_group_new {
-    ($gen:expr, $strnum:tt) => {
-        $gen.mul(field_new!(Fr, $strnum))
-    }
-}
-
 // NOTE: Include traits Add<Self>, Neg<<Output = Self>, Mul<Self>, MulAssign<Scalar>?
 // (but there is no single standard Zero or One element for arbitrary-dimension matrices)
 // (and since Vec is not in crate, can't implement Matrix with trait Mat)
@@ -1730,6 +1711,22 @@ mod tests {
         type G2Affine = <F as PairingEngine>::G2Affine;
         type G2Projective = <F as PairingEngine>::G2Projective;
         type Fr = <F as PairingEngine>::Fr;
+
+        // Uses an affine group generator to produce an affine group element represented by the numeric string.
+        #[allow(unused_macros)]
+        macro_rules! affine_group_new {
+            ($gen:expr, $strnum:tt) => {
+                $gen.mul(field_new!(Fr, $strnum)).into_affine()
+            }
+        }
+
+        // Uses an affine group generator to produce a projective group element represented by the numeric string.
+        #[allow(unused_macros)]
+        macro_rules! projective_group_new {
+            ($gen:expr, $strnum:tt) => {
+                $gen.mul(field_new!(Fr, $strnum))
+            }
+        }
 
         #[test]
         fn test_col_vec_to_vec() {
