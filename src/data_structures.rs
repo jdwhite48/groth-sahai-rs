@@ -367,7 +367,7 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
     #[inline]
     fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self {
         // = xu, where u = u_2 + (O, P) is a commitment group element
-        ( key.u.1.clone() + Com1::<E>::linear_map(&key.g1_gen) ).scalar_mul(&x)
+        ( col_vec_to_vec(&key.u)[1] + Com1::<E>::linear_map(&key.g1_gen) ).scalar_mul(&x)
     }
 
     #[inline]
@@ -418,8 +418,8 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
 
     #[inline]
     fn scalar_linear_map(y: &E::Fr, key: &CRS<E>) -> Self {
-        // = xu, where u = u_2 + (O, P) is a commitment group element
-        ( key.v.1.clone() + Com2::<E>::linear_map(&key.g2_gen) ).scalar_mul(&y)
+        // = yv, where v = v_2 + (O, P) is a commitment group element
+        ( col_vec_to_vec(&key.v)[1] + Com2::<E>::linear_map(&key.g2_gen) ).scalar_mul(&y)
     }
 
     #[inline]
@@ -1623,8 +1623,8 @@ mod tests {
 
             assert_eq!(b1.0, G1Affine::zero());
             assert_eq!(b1.1, g1);
-            assert_eq!(b2.0, key.v.1.0.mul(g2));
-            assert_eq!(b2.1, (key.v.1.1 + key.g2_gen).mul(g2));
+            assert_eq!(b2.0, key.v[1][0].0.mul(g2));
+            assert_eq!(b2.1, (key.v[1][0].1 + key.g2_gen).mul(g2));
         }
 
         #[allow(non_snake_case)]
@@ -1645,8 +1645,8 @@ mod tests {
 
             assert_eq!(bt_lin_bilin.0, Fqk::one());
             assert_eq!(bt_lin_bilin.1, Fqk::one());
-            assert_eq!(bt_lin_bilin.2, F::pairing(gt.clone(), key.v.1.0.clone()));
-            assert_eq!(bt_lin_bilin.3, F::pairing(gt.clone(), key.v.1.1.clone() + key.g2_gen.clone()));
+            assert_eq!(bt_lin_bilin.2, F::pairing(gt.clone(), key.v[1][0].0.clone()));
+            assert_eq!(bt_lin_bilin.3, F::pairing(gt.clone(), key.v[1][0].1.clone() + key.g2_gen.clone()));
             assert_eq!(bt_lin_bilin, bt_bilin_lin);
         }
 
@@ -1662,8 +1662,8 @@ mod tests {
             let b1 = Com1::<F>::scalar_linear_map(&g1, &key);
             let b2 = Com2::<F>::linear_map(&g2);
 
-            assert_eq!(b1.0, key.u.1.0.mul(g1));
-            assert_eq!(b1.1, (key.u.1.1 + key.g1_gen).mul(g1));
+            assert_eq!(b1.0, key.u[1][0].0.mul(g1));
+            assert_eq!(b1.1, (key.u[1][0].1 + key.g1_gen).mul(g1));
             assert_eq!(b2.0, G2Affine::zero());
             assert_eq!(b2.1, g2);
         }
@@ -1685,9 +1685,9 @@ mod tests {
             let bt_bilin_lin = ComT::<F>::linear_map_MSG2(&gt, &key);
 
             assert_eq!(bt_lin_bilin.0, Fqk::one());
-            assert_eq!(bt_lin_bilin.1, F::pairing(key.u.1.0.clone(), gt.clone()));
+            assert_eq!(bt_lin_bilin.1, F::pairing(key.u[1][0].0.clone(), gt.clone()));
             assert_eq!(bt_lin_bilin.2, Fqk::one());
-            assert_eq!(bt_lin_bilin.3, F::pairing(key.u.1.1.clone() + key.g1_gen.clone(), gt.clone()));
+            assert_eq!(bt_lin_bilin.3, F::pairing(key.u[1][0].1.clone() + key.g1_gen.clone(), gt.clone()));
             assert_eq!(bt_lin_bilin, bt_bilin_lin);
         }
     }
