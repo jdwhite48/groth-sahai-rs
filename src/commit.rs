@@ -1,5 +1,5 @@
-//! Commit from scalar field [`Fr`](ark_ec::PairingEngine::Fr) or bilinear group `(G1, G2, Fqk)`
-//! into Groth-Sahai commitment group `(B1, B2, BT)` for the SXDH instantiation.
+//! Commit from scalar field [`Fr`](ark_ec::PairingEngine::Fr) or bilinear group `G1, G2`
+//! into the Groth-Sahai commitment group `B1, B2` for the SXDH instantiation.
 #![allow(non_snake_case)]
 
 use ark_ec::PairingEngine;
@@ -14,7 +14,7 @@ use crate::generator::CRS;
 // TODO: Perform individual commitments as well
 
 
-/// Commit a single G1 element to [`B1`](crate::data_structures::Com1).
+/// Commit a single [`G1`](ark_ec::PairingEngine::G1Affine) element to [`B1`](crate::data_structures::Com1).
 pub fn commit_G1<CR, E>(xvar: &E::G1Affine, key: &CRS<E>, rng: &mut CR) -> Com1<E>
 where
     E: PairingEngine,
@@ -26,7 +26,7 @@ where
     Com1::<E>::linear_map(&xvar) + key.u[0][0].scalar_mul(&r1) + key.u[1][0].scalar_mul(&r2)
 }
 
-/// Commit all G1 elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
+/// Commit all [`G1`](ark_ec::PairingEngine::G1Affine) elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
 pub fn batch_commit_G1<CR, E>(xvars: &Vec<E::G1Affine>, key: &CRS<E>, rng: &mut CR) -> Vec<Com1<E>> 
 where
     E: PairingEngine,
@@ -86,7 +86,7 @@ where
     col_vec_to_vec(&coms)
 }
 
-/// Commit a single G2 element to [`B2`](crate::data_structures::Com2).
+/// Commit a single [`G2`](ark_ec::PairingEngine::G2Affine) element to [`B2`](crate::data_structures::Com2).
 pub fn commit_G2<CR, E>(yvar: &E::G2Affine, key: &CRS<E>, rng: &mut CR) -> Com2<E>
 where
     E: PairingEngine,
@@ -98,7 +98,7 @@ where
     Com2::<E>::linear_map(&yvar) + key.v[0][0].scalar_mul(&s1) + key.v[1][0].scalar_mul(&s2)
 }
 
-/// Commit all G2 elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
+/// Commit all [`G2`](ark_ec::PairingEngine::G2Affine) elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
 pub fn batch_commit_G2<CR, E>(yvars: &Vec<E::G2Affine>, key: &CRS<E>, rng: &mut CR) -> Vec<Com2<E>> 
 where
     E: PairingEngine,
