@@ -29,17 +29,21 @@ macro_rules! projective_group_new {
     }
 }
 
-// NOTE: Represent it as Add<Self> or Mul<Self> or MulAssign<Scalar>? (but there is no single standard Zero or One element for arbitrary-dimension matrices)
+// NOTE: Include traits Add<Self>, Neg<<Output = Self>, Mul<Self>, MulAssign<Scalar>?
+// (but there is no single standard Zero or One element for arbitrary-dimension matrices)
+// (and since Vec is not in crate, can't implement Matrix with trait Mat)
 //
 // TODO: Include helpful functions for identity matrix, zero matrix, inverse (though probably not needed for GS)
 // TODO: Implement negation
 pub trait Mat<Elem: Clone>:
     Eq
+    + Clone
     + Debug
 {
     type Other;
 
     fn add(&self, other: &Self) -> Self;
+    fn neg(&self) -> Self;
     fn scalar_mul(&self, other: &Self::Other) -> Self;
     fn transpose(&self) -> Self;
     fn left_mul(&self, lhs: &Matrix<Self::Other>, is_parallel: bool) -> Self;
@@ -623,6 +627,20 @@ macro_rules! impl_base_commit_mats {
                     *self = smul;
                 }
             }
+            impl<E: PairingEngine> Neg<Output = Self> for Matrix<$com<E>> {
+
+                #[inline]
+                fn neg(self) -> Self::Output {
+                   (0..self.len()).map( |i| {
+                       let row = &self[i];
+                       (0..row.len()).map( |j| {
+                           -row[j]
+                       })
+                       .collect::<Vec<$com<E>>>()
+                   })
+                   .collect::<Vec<Vec<$com<E>>>>()
+                }
+            }
             */
             impl<E: PairingEngine> Mat<$com<E>> for Matrix<$com<E>> {
                 type Other = E::Fr;
@@ -640,6 +658,18 @@ macro_rules! impl_base_commit_mats {
                         }
                     }
                     add
+                }
+
+                #[inline]
+                fn neg(&self) -> Self {
+                   (0..self.len()).map( |i| {
+                       let row = &self[i];
+                       (0..row.len()).map( |j| {
+                           -row[j]
+                       })
+                       .collect::<Vec<$com<E>>>()
+                   })
+                   .collect::<Vec<Vec<$com<E>>>>()
                 }
 
                 /* TODO: Paralellize scalar_mul */
@@ -842,6 +872,18 @@ impl<F: Field> Mat<F> for Matrix<F> {
             }
         }
         add
+    }
+
+    #[inline]
+    fn neg(&self) -> Self {
+       (0..self.len()).map( |i| {
+           let row = &self[i];
+           (0..row.len()).map( |j| {
+               -row[j]
+           })
+           .collect::<Vec<F>>()
+       })
+       .collect::<Vec<Vec<F>>>()
     }
 
     fn scalar_mul(&self, other: &Self::Other) -> Self {
@@ -2184,6 +2226,137 @@ mod tests {
             assert_eq!(exp, res);
         }
 
+        #[test]
+        fn test_field_matrix_neg() {
+
+            // 3 x 3 matrix
+            let one = Fr::one();
+            let mat: Matrix<Fr> = vec![
+                vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
+                vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")],
+                vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9")]
+
+            ];
+            // 3 x 3 transpose matrix
+            let exp: Matrix<Fr> = vec![
+                vec![-one, field_new!(Fr, "-2"), field_new!(Fr, "-3")],
+                vec![field_new!(Fr, "-4"), field_new!(Fr, "-5"), field_new!(Fr, "-6")],
+                vec![field_new!(Fr, "-7"), field_new!(Fr, "-8"), field_new!(Fr, "-9")]
+            ];
+            let res: Matrix<Fr> = mat.neg();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 3);
+            }
+
+            assert_eq!(exp, res);
+        }
+
+
+        #[test]
+        fn test_B1_matrix_neg() {
+
+            // 3 x 3 matrix
+            let mut rng = test_rng();
+            let g1gen = G1Projective::rand(&mut rng).into_affine();
+            let mat: Matrix<Com1<F>> = vec![
+                vec![
+                    Com1::<F>( G1Affine::zero(), g1gen ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "2") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "3") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "4") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "5") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "6") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "7") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "8") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "9") )
+                ]
+
+            ];
+            // 3 x 3 transpose matrix
+            let exp: Matrix<Com1<F>> = vec![
+                vec![
+                    Com1::<F>( G1Affine::zero(), -g1gen ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "-2") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "-3") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "-4") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "-5") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "-6") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "-7") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "-8") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "-9") )
+                ]
+            ];
+            let res: Matrix<Com1<F>> = mat.neg();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 3);
+            }
+
+            assert_eq!(exp, res);
+        }
+
+        #[test]
+        fn test_B2_matrix_neg() {
+
+            // 3 x 3 matrix
+            let mut rng = test_rng();
+            let g2gen = G2Projective::rand(&mut rng).into_affine();
+            let mat: Matrix<Com2<F>> = vec![
+                vec![
+                    Com2::<F>( G2Affine::zero(), g2gen ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "2") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "3") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "4") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "5") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "6") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "7") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "8") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "9") )
+                ]
+
+            ];
+            // 3 x 3 transpose matrix
+            let exp: Matrix<Com2<F>> = vec![
+                vec![
+                    Com2::<F>( G2Affine::zero(), -g2gen ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "-2") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "-3") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "-4") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "-5") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "-6") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "-7") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "-8") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "-9") )
+                ]
+            ];
+            let res: Matrix<Com2<F>> = mat.neg();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 3);
+            }
+
+            assert_eq!(exp, res);
+        }
         #[test]
         fn test_field_matrix_add() {
 
