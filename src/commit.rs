@@ -1,3 +1,6 @@
+
+#![allow(non_snake_case)]
+
 use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
 use ark_std::{
     UniformRand,
@@ -7,36 +10,100 @@ use ark_std::{
 use crate::data_structures::*;
 use crate::generator::CRS;
 
-#[allow(non_snake_case)]
-pub fn commit_G1<R, E>(x: &Vec<E::G1Affine>, key: &CRS<E>, rng: &mut R) -> Vec<Com1<E>> 
+// TODO: Perform individual commitments as well
+
+/// Commit all G1 elements in list to corresponding element in B1.
+pub fn batch_commit_G1<CR, E>(xvars: &Vec<E::G1Affine>, key: &CRS<E>, rng: &mut CR) -> Vec<Com1<E>> 
 where
     E: PairingEngine,
-    R: Rng + CryptoRng
+    CR: Rng + CryptoRng
 {
     
     // R is a random scalar m x 2 matrix
-    let m = x.len();
-    let mut rand_mat: Matrix<E::Fr> = Vec::with_capacity(m);
-    for _ in 0..m { 
-        rand_mat.push(vec![E::Fr::rand(&mut rng); 2]);
+    let m = xvars.len();
+    let mut R: Matrix<E::Fr> = Vec::with_capacity(m);
+    for _ in 0..m {
+        R.push(vec![E::Fr::rand(rng); 2]);
     }
 
-    // i_1(X) = [ (O, X_1), ..., (O, X_m) ]
-    let b1_mat: Matrix<Com1<E>> = Com1::<E>::batch_linear_map(x)
-        .into_iter()
-        .map( |com1| com1.as_vec() )
-        .collect::<Matrix<E::G1Affine>>();
-    // Ru = [ r_11 u_1 + r_12 u_2, ..., r_m1 u_1 + r_m2 u_2 ]
-    let com_mat: Matrix<Com1<E>> = rand_mat.
-        .into_iter()
-        // TODO: move matrices to be over B1/B2/BT before continuing....
-        .map( |rand_row| group_matrix_scalar_mul::<E, E::G1Affine>(&rand_row[0], &key.u
+    // i_1(X) = [ (O, X_1), ..., (O, X_m) ] (m x 1 matrix)
+    let lin_x: Matrix<Com1<E>> = vec_to_col_vec(&Com1::<E>::batch_linear_map(xvars));
 
-    // c := = i_1(X) + Ru
-    vec![
-        matrix_add(&b1_mat, &group_right_matrix_mul::<E, E::G1Affine>(&rand_mat, &key.u.0.as_col_vec(), false)),
-        matrix_add(&b1_mat, &group_right_matrix_mul::<E, E::G1Affine>(&rand_mat, &key.u.1.as_col_vec(), false))
-    ]
-    .into_iter()
-    .map( |vec| 
+    // c := i_1(X) + Ru (m x 1 matrix)
+    let coms = lin_x.add(&key.u.left_mul(&R, false));
+
+    col_vec_to_vec(&coms)
+}
+
+/// Commit all scalar field elements in list to corresponding element in B1.
+pub fn batch_commit_scalar_to_B1<CR, E>(scalar_xvars: &Vec<E::Fr>, key: &CRS<E>, rng: &mut CR) -> Vec<Com1<E>>
+where
+    E: PairingEngine,
+    CR: Rng + CryptoRng
+{
+    let mprime = scalar_xvars.len();
+    let mut r: Matrix<E::Fr> = Vec::with_capacity(mprime);
+    for _ in 0..mprime {
+        r.push(vec![E::Fr::rand(rng)]);
+    }
+
+    let slin_x: Matrix<Com1<E>> = vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(scalar_xvars, key));
+    let ru: Matrix<Com1<E>> = vec_to_col_vec(
+        &col_vec_to_vec(&r).into_iter().map( |sca| {
+            key.u[0][0].scalar_mul(&sca)
+        }).collect::<Vec<Com1<E>>>()
+    );
+
+    // c := i_1'(x) + r u_1 (mprime x 1 matrix)
+    let coms: Matrix<Com1<E>> = slin_x.add(&ru);
+
+    col_vec_to_vec(&coms)
+}
+
+/// Commit all G2 elements in list to corresponding element in B2.
+pub fn batch_commit_G2<CR, E>(yvars: &Vec<E::G2Affine>, key: &CRS<E>, rng: &mut CR) -> Vec<Com2<E>> 
+where
+    E: PairingEngine,
+    CR: Rng + CryptoRng
+{
+
+    // S is a random scalar n x 2 matrix
+    let n = yvars.len();
+    let mut S: Matrix<E::Fr> = Vec::with_capacity(n);
+    for _ in 0..n {
+        S.push(vec![E::Fr::rand(rng); 2]);
+    }
+
+    // i_2(Y) = [ (O, Y_1), ..., (O, Y_m) ] (n x 1 matrix)
+    let lin_y: Matrix<Com2<E>> = vec_to_col_vec(&Com2::<E>::batch_linear_map(yvars));
+
+    // c := i_2(Y) + Sv (n x 1 matrix)
+    let coms = lin_y.add(&key.v.left_mul(&S, false));
+
+    col_vec_to_vec(&coms)
+}
+
+/// Commit all scalar field elements in list to corresponding element in B2.
+pub fn batch_commit_scalar_to_B2<CR, E>(scalar_yvars: &Vec<E::Fr>, key: &CRS<E>, rng: &mut CR) -> Vec<Com2<E>>
+where
+    E: PairingEngine,
+    CR: Rng + CryptoRng
+{
+    let nprime = scalar_yvars.len();
+    let mut s: Matrix<E::Fr> = Vec::with_capacity(nprime);
+    for _ in 0..nprime {
+        s.push(vec![E::Fr::rand(rng)]);
+    }
+
+    let slin_y: Matrix<Com2<E>> = vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(scalar_yvars, key));
+    let sv: Matrix<Com2<E>> = vec_to_col_vec(
+        &col_vec_to_vec(&s).into_iter().map( |sca| {
+            key.v[0][0].scalar_mul(&sca)
+        }).collect::<Vec<Com2<E>>>()
+    );
+
+    // d := i_2'(y) + s v_1 (nprime x 1 matrix)
+    let coms: Matrix<Com2<E>> = slin_y.add(&sv);
+
+    col_vec_to_vec(&coms)
 }

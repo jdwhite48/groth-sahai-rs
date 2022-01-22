@@ -25,7 +25,7 @@
 /// well. 
 pub mod data_structures;
 pub mod generator;
-//pub mod commit;
+pub mod commit;
 
 /// Groth-Sahai statement (i.e. bilinear equation) types.
 pub enum GSType {
