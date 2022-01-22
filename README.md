@@ -5,7 +5,7 @@
     <a href="https://deps.rs/repo/github/jdwhite88/groth-sahai-rs"><img src="https://deps.rs/repo/github/jdwhite88/groth-sahai-rs/status.svg"></a>
 </p>
 
-A Rust library for constructing Groth-Sahai non-interactive witness-indistinguishable and zero-knowledge proofs about the satisfiability of equations over bilinear groups [[1]](https://eprint.iacr.org/eprint-bin/getfile.pl?entry=2007/155&version=20160411:065033&file=155.pdf) [[2]](https://www.iacr.org/archive/pkc2010/60560179/60560179.pdf). Inspired by the [Java implementation](https://github.com/gijsvl/groth-sahai) of the Groth-Sahai protocol written by Gijs Van Laer.
+A Rust library for constructing non-interactive witness-indistinguishable and zero-knowledge proofs about the satisfiability of equations over bilinear groups [[1]](https://eprint.iacr.org/eprint-bin/getfile.pl?entry=2007/155&version=20160411:065033&file=155.pdf) [[2]](https://www.iacr.org/archive/pkc2010/60560179/60560179.pdf). This project was inspired by the [Java implementation](https://github.com/gijsvl/groth-sahai) of the Groth-Sahai protocol, written by Gijs Van Laer.
 
 This library is distributed under the MIT License and the Apache v2 License (see [License](#license)).
 
@@ -15,9 +15,9 @@ This library is distributed under the MIT License and the Apache v2 License (see
 
 ### ⚠ Disclaimer ⚠
 
-* This library is a (currently incomplete) academic proof-of-concept only, and has not undergone thorough testing. **Do NOT use this implementation in production code.**
+* This library, as well as the Arkworks ecosystem itself, is a (currently incomplete) academic proof-of-concept only, and has NOT been thoroughly reviewed for production use. **Do NOT use this implementation in production code.**
 
-* **Your choice of bilinear group (G1, G2, GT, e) must be secure under the SXDH assumption.**
+* **Your choice of bilinear group (G1, G2, GT, e) MUST be secure under the SXDH assumption**, must be equipped with a Type-III pairing, and must be implemented in Arkworks. For example, [Bls12_381](https://docs.rs/ark-bls12-381/0.3.0/ark_bls12_381/) is amenable to this implementation.
 
 ## Getting Started
 
@@ -36,7 +36,7 @@ cargo build
 
 ### Test
 
-To run the unit tests (i.e. private API; within library) and integration tests (i.e. public API; in `tests`):
+To run the unit tests (in the source files) and integration tests (in `tests`):
 ```bash
 cargo test
 ```
@@ -45,9 +45,17 @@ To run the benchmark tests (public API; in `benches`):
 cargo bench
 ```
 
+### Documentation
+
+While this library is not yet published, a first draft of the documentation can be viewed by running the following command (this will open a local copy in your default web browser):
+```bash
+cargo doc --open
+```
+The API is subject to change.
+
 ## Contributing
 
-If you would like to contribute, and have not been invited as a direct collaborator to the project, follow the procedure below:
+If you would like to contribute, but have not been invited as a direct collaborator to the project, follow the procedure below:
 
 1. Fork the project
 2. Create your feature branch (`git checkout -b feature-branch main`)
