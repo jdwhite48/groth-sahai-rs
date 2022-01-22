@@ -1,7 +1,8 @@
-
+//! Commit from scalar field [`Fr`](ark_ec::PairingEngine::Fr) or bilinear group `(G1, G2, Fqk)`
+//! into Groth-Sahai commitment group `(B1, B2, BT)` for the SXDH instantiation.
 #![allow(non_snake_case)]
 
-use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
+use ark_ec::PairingEngine;
 use ark_std::{
     UniformRand,
     rand::{CryptoRng, Rng}
@@ -12,7 +13,20 @@ use crate::generator::CRS;
 
 // TODO: Perform individual commitments as well
 
-/// Commit all G1 elements in list to corresponding element in B1.
+
+/// Commit a single G1 element to [`B1`](crate::data_structures::Com1).
+pub fn commit_G1<CR, E>(xvar: &E::G1Affine, key: &CRS<E>, rng: &mut CR) -> Com1<E>
+where
+    E: PairingEngine,
+    CR: Rng + CryptoRng
+{
+    let (r1, r2) = (E::Fr::rand(rng), E::Fr::rand(rng));
+
+    // c := i_1(x) + r_1 u_1 + r_2 u_2
+    Com1::<E>::linear_map(&xvar) + key.u[0][0].scalar_mul(&r1) + key.u[1][0].scalar_mul(&r2)
+}
+
+/// Commit all G1 elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
 pub fn batch_commit_G1<CR, E>(xvars: &Vec<E::G1Affine>, key: &CRS<E>, rng: &mut CR) -> Vec<Com1<E>> 
 where
     E: PairingEngine,
@@ -35,7 +49,19 @@ where
     col_vec_to_vec(&coms)
 }
 
-/// Commit all scalar field elements in list to corresponding element in B1.
+/// Commit a single [scalar field](ark_ec::PairingEngine::Fr) element to [`B1`](crate::data_structures::Com1).
+pub fn commit_scalar_to_B1<CR, E>(scalar_xvar: &E::Fr, key: &CRS<E>, rng: &mut CR) -> Com1<E>
+where
+    E: PairingEngine,
+    CR: Rng + CryptoRng
+{
+    let r: E::Fr = E::Fr::rand(rng);
+
+    // c := i_1'(x) + r u_1
+    Com1::<E>::scalar_linear_map(scalar_xvar, key) + key.u[0][0].scalar_mul(&r)
+}
+
+/// Commit all [scalar field](ark_ec::PairingEngine::Fr) elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
 pub fn batch_commit_scalar_to_B1<CR, E>(scalar_xvars: &Vec<E::Fr>, key: &CRS<E>, rng: &mut CR) -> Vec<Com1<E>>
 where
     E: PairingEngine,
@@ -60,7 +86,19 @@ where
     col_vec_to_vec(&coms)
 }
 
-/// Commit all G2 elements in list to corresponding element in B2.
+/// Commit a single G2 element to [`B2`](crate::data_structures::Com2).
+pub fn commit_G2<CR, E>(yvar: &E::G2Affine, key: &CRS<E>, rng: &mut CR) -> Com2<E>
+where
+    E: PairingEngine,
+    CR: Rng + CryptoRng
+{
+    let (s1, s2) = (E::Fr::rand(rng), E::Fr::rand(rng));
+
+    // d := i_2(y) + s_1 v_1 + s_2 v_2
+    Com2::<E>::linear_map(&yvar) + key.v[0][0].scalar_mul(&s1) + key.v[1][0].scalar_mul(&s2)
+}
+
+/// Commit all G2 elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
 pub fn batch_commit_G2<CR, E>(yvars: &Vec<E::G2Affine>, key: &CRS<E>, rng: &mut CR) -> Vec<Com2<E>> 
 where
     E: PairingEngine,
@@ -83,7 +121,19 @@ where
     col_vec_to_vec(&coms)
 }
 
-/// Commit all scalar field elements in list to corresponding element in B2.
+/// Commit a single [scalar field](ark_ec::PairingEngine::Fr) element to [`B2`](crate::data_structures::Com2).
+pub fn commit_scalar_to_B2<CR, E>(scalar_yvar: &E::Fr, key: &CRS<E>, rng: &mut CR) -> Com2<E>
+where
+    E: PairingEngine,
+    CR: Rng + CryptoRng
+{
+    let s: E::Fr = E::Fr::rand(rng);
+
+    // d := i_2'(y) + s v_1
+    Com2::<E>::scalar_linear_map(scalar_yvar, key) + key.v[0][0].scalar_mul(&s)
+}
+
+/// Commit all [scalar field](ark_ec::PairingEngine::Fr) elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
 pub fn batch_commit_scalar_to_B2<CR, E>(scalar_yvars: &Vec<E::Fr>, key: &CRS<E>, rng: &mut CR) -> Vec<Com2<E>>
 where
     E: PairingEngine,
