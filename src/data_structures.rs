@@ -1,5 +1,6 @@
 use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
-use ark_ff::{Zero, One, Field};
+#[allow(unused_imports)]
+use ark_ff::{Zero, One, Field, field_new};
 use ark_std::{
     fmt::Debug,
     ops::{Add, AddAssign, Neg, Sub, SubAssign},
@@ -10,9 +11,28 @@ use rayon::prelude::*;
 use crate::generator::CRS;
 
 
-// NOTE: No Add<Self> or Mul<Self> or MulAssign<Scalar> available because there is no single standard Zero or One element for arbitrary-dimension matrices
+// Uses an affine group generator to produce an affine group element represented by the numeric string.
+#[allow(unused_macros)]
+//#[macro_export]
+macro_rules! affine_group_new {
+    ($gen:expr, $strnum:tt) => {
+        $gen.mul(field_new!(Fr, $strnum)).into_affine()
+    }
+}
 
+// Uses an affine group generator to produce a projective group element represented by the numeric string.
+#[allow(unused_macros)]
+//#[macro_export]
+macro_rules! projective_group_new {
+    ($gen:expr, $strnum:tt) => {
+        $gen.mul(field_new!(Fr, $strnum))
+    }
+}
+
+// NOTE: Represent it as Add<Self> or Mul<Self> or MulAssign<Scalar>? (but there is no single standard Zero or One element for arbitrary-dimension matrices)
+//
 // TODO: Include helpful functions for identity matrix, zero matrix, inverse (though probably not needed for GS)
+// TODO: Implement negation
 pub trait Mat<Elem: Clone>:
     Eq
     + Debug
@@ -986,7 +1006,7 @@ impl<F: Field> Mat<F> for Matrix<F> {
 #[cfg(test)]
 mod tests {
 
-    #[allow(non_snake_case)]
+    #![allow(non_snake_case)]
     mod SXDH_com_group {
 
         use ark_bls12_381::{Bls12_381 as F};
@@ -1003,7 +1023,6 @@ mod tests {
         type Fqk = <F as PairingEngine>::Fqk;
         type Fr = <F as PairingEngine>::Fr;
 
-        #[allow(non_snake_case)]
         #[test]
         fn test_B1_add_zero() {
             let mut rng = test_rng();
@@ -1305,7 +1324,7 @@ mod tests {
             assert_eq!(ab, ComT::<F>(a.0 / b.0, a.1 / b.1, a.2 / b.2, a.3 / b.3));
             assert_eq!(ab, -ba);
         }
-        
+
         #[allow(non_snake_case)]
         #[test]
         fn test_B1_scalar_mul() {
@@ -1421,7 +1440,7 @@ mod tests {
         }
 
         #[test]
-        fn test_into_vec_and_matrix() {
+        fn test_B_into_matrix() {
 
             let mut rng = test_rng();
             let b1 = Com1::<F>(
@@ -1442,7 +1461,7 @@ mod tests {
         }
 
         #[test]
-        fn test_from_matrix() {
+        fn test_B_from_matrix() {
 
             let mut rng = test_rng();
             let b1_vec = vec![
@@ -1642,9 +1661,8 @@ mod tests {
 
         type G1Affine = <F as PairingEngine>::G1Affine;
         type G1Projective = <F as PairingEngine>::G1Projective;
-//        type G2Affine = <F as PairingEngine>::G2Affine;
-//        type G2Projective = <F as PairingEngine>::G2Projective;
-//        type Fqk = <F as PairingEngine>::Fqk;
+        type G2Affine = <F as PairingEngine>::G2Affine;
+        type G2Projective = <F as PairingEngine>::G2Projective;
         type Fr = <F as PairingEngine>::Fr;
 
         #[test]
@@ -1836,11 +1854,11 @@ mod tests {
             let lhs: Matrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
             // 3 x 1 (column) vector
             let rhs: Matrix<Com1<F>> = vec![
-                vec![ Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "4")).into_affine() ) ],
-                vec![ Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "5")).into_affine() ) ],
-                vec![ Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "6")).into_affine() ) ]
+                vec![ Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "4") ) ],
+                vec![ Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "5") ) ],
+                vec![ Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "6") ) ]
             ];
-            let exp: Matrix<Com1<F>> = vec![vec![ Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "32")).into_affine() )]];
+            let exp: Matrix<Com1<F>> = vec![vec![ Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "32") )]];
             let res: Matrix<Com1<F>> = rhs.left_mul(&lhs, false);
             
             // 1 x 1 resulting matrix
@@ -1859,8 +1877,8 @@ mod tests {
             let g1gen = G1Projective::rand(&mut rng).into_affine();
             let lhs: Matrix<Com1<F>> = vec![vec![
                 Com1::<F>( G1Affine::zero(), g1gen),
-                Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "2")).into_affine()),
-                Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "3")).into_affine())
+                Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "2")),
+                Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "3"))
             ]];
             // 3 x 1 (column) vector
             let rhs: Matrix<Fr> = vec![
@@ -1868,7 +1886,7 @@ mod tests {
                 vec![field_new!(Fr, "5")],
                 vec![field_new!(Fr, "6")]
             ];
-            let exp: Matrix<Com1<F>> = vec![vec![ Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr, "32")).into_affine() ) ]];
+            let exp: Matrix<Com1<F>> = vec![vec![ Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "32") ) ]];
             let res: Matrix<Com1<F>> = lhs.right_mul(&rhs, false);
             
             // 1 x 1 resulting matrix
@@ -1879,58 +1897,7 @@ mod tests {
         }
 
         #[test]
-        fn test_matrix_transpose_vec() {
-
-            // 1 x 3 (row) vector
-            let one = Fr::one();
-            let mat: Matrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
-
-            // 3 x 1 transpose (column) vector
-            let exp: Matrix<Fr> = vec![
-                vec![one],
-                vec![field_new!(Fr, "2")],
-                vec![field_new!(Fr, "3")]
-            ];
-            let res: Matrix<Fr> = mat.transpose();
-
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 1);
-            }
-
-            assert_eq!(exp, res);
-        }
-
-        // TODO: Change
-        #[test]
-        fn test_scalar_matrix_transpose() {
-
-            // 3 x 3 matrix
-            let one = Fr::one();
-            let mat: Matrix<Fr> = vec![
-                vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
-                vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")],
-                vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9")]
-            ];
-            // 3 x 3 transpose matrix
-            let exp: Matrix<Fr> = vec![
-                vec![one, field_new!(Fr, "4"), field_new!(Fr, "7")],
-                vec![field_new!(Fr, "2"), field_new!(Fr, "5"), field_new!(Fr, "8")],
-                vec![field_new!(Fr, "3"), field_new!(Fr, "6"), field_new!(Fr, "9")]
-            ];
-            let res: Matrix<Fr> = mat.transpose();
-
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 3);
-            }
-
-            assert_eq!(exp, res);
-        }
-        
-        // TODO: Change
-        #[test]
-        fn test_scalar_matrix_scalar_mul() {
+        fn test_field_matrix_scalar_mul() {
 
             // 3 x 3 matrices
             let one = Fr::one();
@@ -1952,7 +1919,7 @@ mod tests {
         }
 
         #[test]
-        fn test_com_matrix_scalar_mul() {
+        fn test_B1_matrix_scalar_mul() {
 
             let scalar: Fr = field_new!(Fr, "3");
 
@@ -1965,7 +1932,7 @@ mod tests {
                 mat.push(Vec::with_capacity(3));
                 for _ in 0..3 {
 
-                    mat[i].push( Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr,"1")).into_affine() ) );
+                    mat[i].push( Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "1") ) );
                 }
             }
 
@@ -1973,7 +1940,7 @@ mod tests {
             for i in 0..3 {
                 exp.push(Vec::with_capacity(3));
                 for _ in 0..3 {
-                    exp[i].push( Com1::<F>( G1Affine::zero(), g1gen.mul(field_new!(Fr,"3")).into_affine() ) );
+                    exp[i].push( Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "3") ) );
                 }
             }
 
@@ -1983,7 +1950,242 @@ mod tests {
         }
 
         #[test]
-        fn test_matrix_add() {
+        fn test_B2_matrix_scalar_mul() {
+
+            let scalar: Fr = field_new!(Fr, "3");
+
+            // 3 x 3 matrix of Com1 elements (0, 3)
+            let mut rng = test_rng();
+            let g2gen = G2Projective::rand(&mut rng).into_affine();
+            let mut mat: Matrix<Com2<F>> = Vec::with_capacity(3);
+
+            for i in 0..3 {
+                mat.push(Vec::with_capacity(3));
+                for _ in 0..3 {
+
+                    mat[i].push( Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "1") ) );
+                }
+            }
+
+            let mut exp: Matrix<Com2<F>> = Vec::with_capacity(3);
+            for i in 0..3 {
+                exp.push(Vec::with_capacity(3));
+                for _ in 0..3 {
+                    exp[i].push( Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "3") ) );
+                }
+            }
+
+            let res: Matrix<Com2<F>> = mat.scalar_mul(&scalar);
+
+            assert_eq!(exp, res);
+        }
+
+        #[test]
+        fn test_B1_transpose_vec() {
+            let mut rng = test_rng();
+            let g1gen = G1Projective::rand(&mut rng).into_affine();
+            // 1 x 3 (row) vector
+            let mat: Matrix<Com1<F>> = vec![vec![
+                Com1::<F>( G1Affine::zero(), g1gen),
+                Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "2")),
+                Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "3"))
+            ]];
+            // 3 x 1 transpose (column) vector
+            let exp: Matrix<Com1<F>> = vec![
+                vec![Com1::<F>( G1Affine::zero(), g1gen)],
+                vec![Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "2"))],
+                vec![Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "3"))]
+            ];
+            let res: Matrix<Com1<F>> = mat.transpose();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 1);
+            }
+            assert_eq!(exp, res);
+        }
+
+        #[test]
+        fn test_B1_matrix_transpose() {
+
+            // 3 x 3 matrix
+            let mut rng = test_rng();
+            let g1gen = G1Projective::rand(&mut rng).into_affine();
+            let mat: Matrix<Com1<F>> = vec![
+                vec![
+                    Com1::<F>( G1Affine::zero(), g1gen ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "2") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "3") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "4") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "5") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "6") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "7") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "8") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "9") )
+                ]
+
+            ];
+            // 3 x 3 transpose matrix
+            let exp: Matrix<Com1<F>> = vec![
+                vec![
+                    Com1::<F>( G1Affine::zero(), g1gen ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "4") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "7") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "2") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "5") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "8") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "3") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "6") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "9") )
+                ]
+            ];
+            let res: Matrix<Com1<F>> = mat.transpose();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 3);
+            }
+
+            assert_eq!(exp, res);
+        }
+
+        #[test]
+        fn test_B2_transpose_vec() {
+            let mut rng = test_rng();
+            let g2gen = G2Projective::rand(&mut rng).into_affine();
+            // 1 x 3 (row) vector
+            let mat: Matrix<Com2<F>> = vec![vec![
+                Com2::<F>( G2Affine::zero(), g2gen),
+                Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "2")),
+                Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "3"))
+            ]];
+            // 3 x 1 transpose (column) vector
+            let exp: Matrix<Com2<F>> = vec![
+                vec![Com2::<F>( G2Affine::zero(), g2gen)],
+                vec![Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "2"))],
+                vec![Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "3"))]
+            ];
+            let res: Matrix<Com2<F>> = mat.transpose();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 1);
+            }
+            assert_eq!(exp, res);
+        }
+
+        #[test]
+        fn test_B2_matrix_transpose() {
+
+            // 3 x 3 matrix
+            let mut rng = test_rng();
+            let g2gen = G2Projective::rand(&mut rng).into_affine();
+            let mat: Matrix<Com2<F>> = vec![
+                vec![
+                    Com2::<F>( G2Affine::zero(), g2gen ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "2") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "3") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "4") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "5") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "6") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "7") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "8") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "9") )
+                ]
+
+            ];
+            // 3 x 3 transpose matrix
+            let exp: Matrix<Com2<F>> = vec![
+                vec![
+                    Com2::<F>( G2Affine::zero(), g2gen ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "4") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "7") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "2") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "5") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "8") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "3") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "6") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "9") )
+                ]
+            ];
+            let res: Matrix<Com2<F>> = mat.transpose();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 3);
+            }
+
+            assert_eq!(exp, res);
+        }
+
+        #[test]
+        fn test_field_transpose_vec() {
+
+            // 1 x 3 (row) vector
+            let one = Fr::one();
+            let mat: Matrix<Fr> = vec![vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")]];
+
+            // 3 x 1 transpose (column) vector
+            let exp: Matrix<Fr> = vec![
+                vec![one],
+                vec![field_new!(Fr, "2")],
+                vec![field_new!(Fr, "3")]
+            ];
+            let res: Matrix<Fr> = mat.transpose();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 1);
+            }
+
+            assert_eq!(exp, res);
+        }
+
+        #[test]
+        fn test_field_matrix_transpose() {
+
+            // 3 x 3 matrix
+            let one = Fr::one();
+            let mat: Matrix<Fr> = vec![
+                vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
+                vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")],
+                vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9")]
+
+            ];
+            // 3 x 3 transpose matrix
+            let exp: Matrix<Fr> = vec![
+                vec![one, field_new!(Fr, "4"), field_new!(Fr, "7")],
+                vec![field_new!(Fr, "2"), field_new!(Fr, "5"), field_new!(Fr, "8")],
+                vec![field_new!(Fr, "3"), field_new!(Fr, "6"), field_new!(Fr, "9")]
+            ];
+            let res: Matrix<Fr> = mat.transpose();
+
+            assert_eq!(res.len(), 3);
+            for i in 0..res.len() {
+                assert_eq!(res[i].len(), 3);
+            }
+
+            assert_eq!(exp, res);
+        }
+
+        #[test]
+        fn test_field_matrix_add() {
 
             // 3 x 3 matrices
             let one = Fr::one();
@@ -2003,36 +2205,156 @@ mod tests {
                 vec![field_new!(Fr, "17"), field_new!(Fr, "19"), field_new!(Fr, "21")],
                 vec![field_new!(Fr, "23"), field_new!(Fr, "25"), field_new!(Fr, "27")]
             ];
-            let res: Matrix<Fr> = lhs.add(&rhs);
+            let lr: Matrix<Fr> = lhs.add(&rhs);
+            let rl: Matrix<Fr> = rhs.add(&lhs);
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 3);
+            assert_eq!(lr.len(), 3);
+            for i in 0..lr.len() {
+                assert_eq!(lr[i].len(), 3);
             }
 
-            assert_eq!(exp, res);
+            assert_eq!(exp, lr);
+            assert_eq!(lr, rl);
         }
 
-
         #[test]
-        fn test_matrix_add_commutativity() {
+        fn test_B1_matrix_add() {
 
             // 3 x 3 matrices
-            let one = Fr::one();
-            let lhs: Matrix<Fr> = vec![
-                vec![one, field_new!(Fr, "2"), field_new!(Fr, "3")],
-                vec![field_new!(Fr, "4"), field_new!(Fr, "5"), field_new!(Fr, "6")],
-                vec![field_new!(Fr, "7"), field_new!(Fr, "8"), field_new!(Fr, "9")]
+            let mut rng = test_rng();
+            let g1gen = G1Projective::rand(&mut rng).into_affine();
+            let lhs: Matrix<Com1<F>> = vec![
+                vec![
+                    Com1::<F>( G1Affine::zero(), g1gen ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "2") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "3") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "4") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "5") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "6") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "7") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "8") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "9") )
+                ]
             ];
-            let rhs: Matrix<Fr> = vec![
-                vec![field_new!(Fr, "10"), field_new!(Fr, "11"), field_new!(Fr, "12")],
-                vec![field_new!(Fr, "13"), field_new!(Fr, "14"), field_new!(Fr, "15")],
-                vec![field_new!(Fr, "16"), field_new!(Fr, "17"), field_new!(Fr, "18")]
+            let rhs: Matrix<Com1<F>> = vec![
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "10") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "11") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "12") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "13") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "14") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "15") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "16") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "17") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "18") )
+                ]
             ];
-            let lhres: Matrix<Fr> = lhs.add(&rhs);
-            let hlres: Matrix<Fr> = rhs.add(&lhs);
 
-            assert_eq!(lhres, hlres);
+            let exp: Matrix<Com1<F>> = vec![
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "11") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "13") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "15") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "17") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "19") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "21") )
+                ],
+                vec![
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "23") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "25") ),
+                    Com1::<F>( G1Affine::zero(), affine_group_new!(g1gen, "27") )
+                ]
+            ];
+            let lr: Matrix<Com1<F>> = lhs.add(&rhs);
+            let rl: Matrix<Com1<F>> = rhs.add(&lhs);
+
+            assert_eq!(lr.len(), 3);
+            for i in 0..lr.len() {
+                assert_eq!(lr[i].len(), 3);
+            }
+
+            assert_eq!(exp, lr);
+            assert_eq!(lr, rl);
+        }
+
+        #[test]
+        fn test_B2_matrix_add() {
+
+            // 3 x 3 matrices
+            let mut rng = test_rng();
+            let g2gen = G2Projective::rand(&mut rng).into_affine();
+            let lhs: Matrix<Com2<F>> = vec![
+                vec![
+                    Com2::<F>( G2Affine::zero(), g2gen ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "2") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "3") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "4") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "5") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "6") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "7") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "8") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "9") )
+                ]
+            ];
+            let rhs: Matrix<Com2<F>> = vec![
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "10") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "11") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "12") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "13") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "14") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "15") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "16") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "17") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "18") )
+                ]
+            ];
+
+            let exp: Matrix<Com2<F>> = vec![
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "11") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "13") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "15") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "17") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "19") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "21") )
+                ],
+                vec![
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "23") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "25") ),
+                    Com2::<F>( G2Affine::zero(), affine_group_new!(g2gen, "27") )
+                ]
+            ];
+            let lr: Matrix<Com2<F>> = lhs.add(&rhs);
+            let rl: Matrix<Com2<F>> = rhs.add(&lhs);
+
+            assert_eq!(lr.len(), 3);
+            for i in 0..lr.len() {
+                assert_eq!(lr[i].len(), 3);
+            }
+
+            assert_eq!(exp, lr);
+            assert_eq!(lr, rl);
         }
     }
 }
