@@ -10,7 +10,7 @@ use ark_ff::{UniformRand, field_new, One};
 use ark_ec::{AffineCurve, ProjectiveCurve, PairingEngine};
 use ark_std::test_rng;
 
-use groth_sahai::{B1, B2, BT, Com1, Com2, ComT, Mat, Matrix};
+use groth_sahai::{B1, B2, BT, Com1, Com2, ComT, Mat, Matrix, CRS, batch_commit_G1, batch_commit_G2, batch_commit_scalar_to_B1, batch_commit_scalar_to_B2};
 
 type G1Projective = <F as PairingEngine>::G1Projective;
 type G1Affine = <F as PairingEngine>::G1Affine;
@@ -402,21 +402,222 @@ fn bench_G1_into_projective(c: &mut Criterion) {
     );
 }
 
+fn bench_small_batch_commit_G1(c: &mut Criterion) {
+
+    std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+    let mut rng = test_rng();
+    let crs = CRS::<F>::generate_crs(&mut rng);
+
+    let xvars: Vec<G1Affine> = vec![
+        crs.g1_gen,
+        affine_group_new!(crs.g1_gen, "2")
+    ];
+
+    c.bench_function(
+        &format!("commit G1"),
+        |bench| {
+            bench.iter(|| {
+                batch_commit_G1(&xvars, &crs, &mut rng);
+            });
+        }
+    );
+}
+
+fn bench_large_batch_commit_G1(c: &mut Criterion) {
+
+    std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+    let mut rng = test_rng();
+    let crs = CRS::<F>::generate_crs(&mut rng);
+
+    let m = 334;
+    let mut xvars: Vec<G1Affine> = Vec::with_capacity(m);
+    for _ in 0..m {
+        xvars.push(crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine());
+    }
+
+    c.bench_function(
+        &format!("commit {} G1", m),
+        |bench| {
+            bench.iter(|| {
+                batch_commit_G1(&xvars, &crs, &mut rng);
+            });
+        }
+    );
+}
+
+fn bench_small_batch_commit_G2(c: &mut Criterion) {
+
+    std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+    let mut rng = test_rng();
+    let crs = CRS::<F>::generate_crs(&mut rng);
+
+    let yvars: Vec<G2Affine> = vec![
+        crs.g2_gen,
+        affine_group_new!(crs.g2_gen, "2")
+    ];
+
+    c.bench_function(
+        &format!("commit G2"),
+        |bench| {
+            bench.iter(|| {
+                batch_commit_G2(&yvars, &crs, &mut rng);
+            });
+        }
+    );
+}
+
+fn bench_large_batch_commit_G2(c: &mut Criterion) {
+
+    std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+    let mut rng = test_rng();
+    let crs = CRS::<F>::generate_crs(&mut rng);
+
+    let n = 334;
+    let mut yvars: Vec<G2Affine> = Vec::with_capacity(n);
+    for _ in 0..n {
+        yvars.push(crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine());
+    }
+
+    c.bench_function(
+        &format!("commit {} G2", n),
+        |bench| {
+            bench.iter(|| {
+                batch_commit_G2(&yvars, &crs, &mut rng);
+            });
+        }
+    );
+}
+
+fn bench_small_batch_commit_scalar_to_B1(c: &mut Criterion) {
+
+    std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+    let mut rng = test_rng();
+    let crs = CRS::<F>::generate_crs(&mut rng);
+
+    let scalar_xvars: Vec<Fr> = vec![ Fr::rand(&mut rng), Fr::rand(&mut rng) ];
+
+    c.bench_function(
+        &format!("commit scalar to B1"),
+        |bench| {
+            bench.iter(|| {
+                batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
+            });
+        }
+    );
+}
+
+fn bench_large_batch_commit_scalar_to_B1(c: &mut Criterion) {
+
+    std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+    let mut rng = test_rng();
+    let crs = CRS::<F>::generate_crs(&mut rng);
+
+    let m = 334;
+    let mut scalar_xvars: Vec<Fr> = Vec::with_capacity(m);
+    for _ in 0..m {
+        scalar_xvars.push(Fr::rand(&mut rng));
+    }
+
+    c.bench_function(
+        &format!("commit {} scalar to B1", m),
+        |bench| {
+            bench.iter(|| {
+                batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
+            });
+        }
+    );
+}
+
+fn bench_small_batch_commit_scalar_to_B2(c: &mut Criterion) {
+
+    std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+    let mut rng = test_rng();
+    let crs = CRS::<F>::generate_crs(&mut rng);
+
+    let scalar_yvars: Vec<Fr> = vec![ Fr::rand(&mut rng), Fr::rand(&mut rng) ];
+
+    c.bench_function(
+        &format!("commit scalar to B2"),
+        |bench| {
+            bench.iter(|| {
+                batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng);
+            });
+        }
+    );
+}
+
+fn bench_large_batch_commit_scalar_to_B2(c: &mut Criterion) {
+
+    std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+    let mut rng = test_rng();
+    let crs = CRS::<F>::generate_crs(&mut rng);
+
+    let n = 334;
+    let mut scalar_yvars: Vec<Fr> = Vec::with_capacity(n);
+    for _ in 0..n {
+        scalar_yvars.push(Fr::rand(&mut rng));
+    }
+
+    c.bench_function(
+        &format!("commit {} scalar to B2", n),
+        |bench| {
+            bench.iter(|| {
+                batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng);
+            });
+        }
+    );
+}
+
+
 criterion_group!{
     name = field_matrix_mul;
     config = Criterion::default().sample_size(50);
-    targets = bench_small_field_matrix_mul, bench_small_field_matrix_mul_par, bench_large_field_matrix_mul, bench_large_field_matrix_mul_par
+    targets =
+        bench_small_field_matrix_mul,
+        bench_small_field_matrix_mul_par,
+        bench_large_field_matrix_mul,
+        bench_large_field_matrix_mul_par
 }
 criterion_group!{
     name = B1_matrix_mul;
     config = Criterion::default().sample_size(10);
-    targets = bench_small_B1_matrix_mul, bench_small_B1_matrix_mul_par//, bench_large_B1_matrix_mul_par, bench_large_B1_matrix_mul
+    targets =
+        bench_small_B1_matrix_mul,
+        bench_small_B1_matrix_mul_par,
+//        bench_large_B1_matrix_mul_par,
+//        bench_large_B1_matrix_mul
 }
 /*
 criterion_group!{
     name = G1_arith;
     config = Criterion::default().sample_size(100);
-    targets = bench_G1_scalar_mul, bench_G1_affine_add, bench_G1_projective_add, bench_G1_into_affine, bench_G1_into_projective, bench_B1_add, bench_B1_scalar_mul
+    targets =
+        bench_G1_scalar_mul,
+        bench_G1_affine_add,
+        bench_G1_projective_add,
+        bench_G1_into_affine,
+        bench_G1_into_projective,
+        bench_B1_add,
+        bench_B1_scalar_mul
 }
 */
-criterion_main!(field_matrix_mul, B1_matrix_mul);//, G1_arith);
+criterion_group!{
+    name = commit;
+    config = Criterion::default().sample_size(50);
+    targets =
+        bench_small_batch_commit_G1,
+        bench_large_batch_commit_G1,
+        bench_small_batch_commit_G2,
+        bench_large_batch_commit_G2,
+        bench_small_batch_commit_scalar_to_B1,
+        bench_large_batch_commit_scalar_to_B1,
+        bench_small_batch_commit_scalar_to_B2,
+        bench_large_batch_commit_scalar_to_B2
+}
+
+criterion_main!(
+    field_matrix_mul,
+    B1_matrix_mul,
+    commit,
+//    G1_arith
+);

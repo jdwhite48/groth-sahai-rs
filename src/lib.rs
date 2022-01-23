@@ -17,4 +17,4 @@ pub enum Role {
 
 pub use crate::generator::CRS;
 pub use crate::data_structures::*;
-//pub use crate::commit::*;
+pub use crate::commit::*;
