@@ -7,34 +7,34 @@
 //! `Γ` is a matrix of public constants defining how the pairing applies to the variables, and
 //! `target` is a public constant representing the RHS of the equation.
 //!
-//! A proof consists of 
+//! A Groth-Sahai proof consists of a set of individual proofs, one for each bilinear equation.
 //!
 //! NOTE: The bilinear equation may need to be re-arranged using the properties
 //! of bilinear group arithmetic and pairings in order to form a valid Groth-Sahai statement.
 //! This API does not provide such functionality.
 
 use ark_ec::{PairingEngine};
+use ark_std::{
+    UniformRand,
+    rand::{CryptoRng, Rng}
+};
 
 use crate::data_structures::*;
-//use crate::generator::CRS;
-//use crate::commit::*;
+use crate::generator::CRS;
+use crate::commit::*;
 
-/// A single Groth-Sahai statement, expressed as the public components of an arbitrary bilinear equation.
-/*
-pub struct Equation<E: PairingEngine, A1, A2, AT> {
-    a_consts: Vec<A1>,
-    b_consts: Vec<A2>,
-    gamma: Matrix<E::Fr>,
-    target: AT
-}
-*/
 pub trait Equ {}
+/// A single Groth-Sahai statement.
+pub trait Equation<E: PairingEngine, A1, A2, AT>: Equ {
 
+    fn prove<CR>(&self, x_vars: &Vec<A1>, y_vars: &Vec<A2>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E> where CR: Rng + CryptoRng;
+}
 /// A collection of Groth-Sahai compatible bilinear equations.
+
 pub type Statement = Vec<dyn Equ>;
 
 /// A Groth-Sahai witness, expressed as variables in a corresponding [`Equation`](self::Equ).
-pub struct Witness<A1, A2> {
+pub struct EquWitness<A1, A2> {
     x_vars: Vec<A1>,
     y_vars: Vec<A2>
 }
@@ -60,7 +60,72 @@ pub struct PPE<E: PairingEngine> {
     target: E::Fqk
 }
 impl<E: PairingEngine> Equ for PPE<E> {}
+impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> {
 
+    fn prove<CR>(&self, x_vars: &Vec<E::G1Affine>, y_vars: &Vec<E::G2Affine>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E> 
+    where
+        CR: Rng + CryptoRng
+    {
+        // Gamma is an (m x n) matrix with m x variables and n y variables
+        // x's commit randomness (i.e. R) is a (m x 2) matrix
+        assert_eq!(x_vars.len(), x_coms.rand.len());
+        assert_eq!(self.gamma.len(), x_coms.rand.len());
+        let _m = x_vars.len();
+        // y's commit randomness (i.e. S) is a (n x 2) matrix
+        assert_eq!(y_vars.len(), y_coms.rand.len());
+        assert_eq!(self.gamma[0].len(), y_coms.rand.len());
+        let _n = y_vars.len();
+
+        let is_parallel = true;
+
+        // (2 x m) field matrix R^T, in GS parlance
+        let x_rand_trans = x_coms.rand.transpose();
+        // (2 x n) field matrix S^T, in GS parlance
+        let y_rand_trans = y_coms.rand.transpose();
+        // (2 x 2) field matrix T, in GS parlance
+        let pf_rand: Matrix<E::Fr> = vec![
+            vec![ E::Fr::rand(rng), E::Fr::rand(rng) ],
+            vec![ E::Fr::rand(rng), E::Fr::rand(rng) ]
+        ];
+
+        // (2 x 1) Com2 matrix
+        let x_rand_lin_b = vec_to_col_vec(&Com2::<E>::batch_linear_map(&self.b_consts)).left_mul(&x_rand_trans, is_parallel);
+
+        // (2 x n) field matrix
+        let x_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel);
+        // (2 x 1) Com2 matrix
+        let x_rand_stmt_lin_y = vec_to_col_vec(&Com2::<E>::batch_linear_map(&y_vars)).left_mul(&x_rand_stmt, is_parallel);
+
+        // (2 x 2) field matrix
+        let pf_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel).right_mul(&y_coms.rand, is_parallel).add(&pf_rand.transpose().neg());
+        // (2 x 1) Com2 matrix
+        let pf_rand_stmt_com2 = crs.v.left_mul(&pf_rand_stmt, is_parallel);
+
+        let pi = col_vec_to_vec(&x_rand_lin_b.add(&x_rand_stmt_lin_y).add(&pf_rand_stmt_com2));
+        assert_eq!(pi.len(), 2);
+
+        // (2 x 1) Com1 matrix
+        let y_rand_lin_a = vec_to_col_vec(&Com1::<E>::batch_linear_map(&self.a_consts)).left_mul(&y_rand_trans, is_parallel);
+
+        // (2 x m) field matrix
+        let y_rand_stmt = y_rand_trans.right_mul(&self.gamma.transpose(), is_parallel);
+        // (2 x 1) Com1 matrix
+        let y_rand_stmt_lin_x = vec_to_col_vec(&Com1::<E>::batch_linear_map(&x_vars)).left_mul(&y_rand_stmt, is_parallel);
+
+        // (2 x 1) Com1 matrix
+        let pf_rand_com1 = crs.u.left_mul(&pf_rand, is_parallel);
+
+        let theta = col_vec_to_vec(&y_rand_lin_a.add(&y_rand_stmt_lin_x).add(&pf_rand_com1));
+        assert_eq!(theta.len(), 2);
+
+        EquProof::<E> {
+            pi,
+            theta
+        }
+    }
+}
+
+/*
 /// A multi-scalar multiplication equation in [`G1`](ark_ec::PairingEngine::G1Affine), equipped with point-scalar multiplication as pairing.
 ///
 /// For example, the equation `n * W + (v * U)^5 = t_1` can be expressed by the following
@@ -73,6 +138,7 @@ pub struct MSMEG1<E: PairingEngine> {
     target: E::G1Affine
 }
 impl<E: PairingEngine> Equ for MSMEG1<E> {}
+impl<E: PairingEngine> Equation<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E> {}
 
 /// A multi-scalar multiplication equation in [`G2`](ark_ec::PairingEngine::G2Affine), equipped with point-scalar multiplication as pairing.
 ///
@@ -86,6 +152,7 @@ pub struct MSMEG2<E: PairingEngine> {
     target: E::G2Affine
 }
 impl<E: PairingEngine> Equ for MSMEG2<E> {}
+impl<E: PairingEngine> Equation<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E> {}
 
 /// A quadratic equation in the [scalar field](ark_ec::PairingEngine::Fr), equipped with field multiplication as pairing.
 ///
@@ -99,3 +166,5 @@ pub struct QuadEqu<E: PairingEngine> {
     target: E::Fr
 }
 impl<E: PairingEngine> Equ for QuadEqu<E> {}
+impl<E: PairingEngine> Equation<E, E::Fr, E::Fr, E::Fr> for QuadEqu<E> {}
+*/

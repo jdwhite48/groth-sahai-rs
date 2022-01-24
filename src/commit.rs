@@ -3,7 +3,6 @@
 #![allow(non_snake_case)]
 
 use ark_ec::PairingEngine;
-use ark_ff::Zero;
 use ark_std::{
     UniformRand,
     rand::{CryptoRng, Rng},
@@ -25,14 +24,14 @@ pub trait Commit:
 /// Contains both the commitment's values (as [`Com1`](crate::data_structures::Com1)) and its randomness.
 #[derive(Debug)]
 pub struct Commit1<E: PairingEngine> {
-    coms: Vec<Com1<E>>,
-    rand: Matrix<E::Fr>
+    pub coms: Vec<Com1<E>>,
+    pub rand: Matrix<E::Fr>
 }
 /// Contains both the commitment's values (as [`Com2`](crate::data_structures::Com2)) and its randomness.
 #[derive(Debug)]
 pub struct Commit2<E: PairingEngine> {
-    coms: Vec<Com2<E>>,
-    rand: Matrix<E::Fr>
+    pub coms: Vec<Com2<E>>,
+    pub rand: Matrix<E::Fr>
 }
 
 macro_rules! impl_com {
