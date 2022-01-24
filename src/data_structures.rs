@@ -41,7 +41,6 @@ use crate::generator::CRS;
 // (and since Vec is not in crate, can't implement Matrix with trait Mat)
 //
 // TODO: Include helpful functions for identity matrix, zero matrix, inverse (though probably not needed for GS)
-// TODO: Implement negation
 pub trait Mat<Elem: Clone>:
     Eq
     + Clone
@@ -112,7 +111,7 @@ pub trait B2<E: PairingEngine>:
 }
 
 // TODO: GROTH-SAHAI -- Implement linear map for quadratic equations if needed
-// TODO: Use linear map with GSType match instead?
+// TODO: Use linear map with GSType match instead, with ad-hoc polymorphism
 // TODO: Allow to multiply with base element (E::Fqk)?
 /// Provides linear maps and matrix conversions for the target of the GS commitment group, as well as the equipped pairing.
 pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
@@ -138,7 +137,6 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
 
 // SXDH instantiation's bilinear group for commitments
 
-// TODO: Expose randomness? (see example data_structures in Arkworks)
 /// Base [`B1`](crate::data_structures::B1) for the commitment group in the SXDH instantiation.
 #[derive(Copy, Clone, Debug)]
 pub struct Com1<E: PairingEngine>(pub E::G1Affine, pub E::G1Affine);
