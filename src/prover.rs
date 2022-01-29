@@ -54,10 +54,10 @@ pub type Proof<E> = Vec<EquProof<E>>;
 /// (private) witness variables `X = [U, W]`, `Y = [V]`, (public) constants `A = [0]`, `B = [0, N]`,
 /// pairing exponent matrix `gamma = [[5], [0]]`, and `target = t_T` in `GT`.
 pub struct PPE<E: PairingEngine> {
-    a_consts: Vec<E::G1Affine>,
-    b_consts: Vec<E::G2Affine>,
-    gamma: Matrix<E::Fr>,
-    target: E::Fqk
+    pub a_consts: Vec<E::G1Affine>,
+    pub b_consts: Vec<E::G2Affine>,
+    pub gamma: Matrix<E::Fr>,
+    pub target: E::Fqk
 }
 impl<E: PairingEngine> Equ for PPE<E> {}
 impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> {
