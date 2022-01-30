@@ -1613,133 +1613,73 @@ mod tests {
             assert_eq!(vec_b2[1], Com2::<F>::scalar_linear_map(&vec_scalar[1], &key));
         }
 
-        // TODO: Conver to Integration tests and test linear maps individually
-        #[allow(non_snake_case)]
         #[test]
         fn test_PPE_linear_maps() {
 
             let mut rng = test_rng();
-            let g1 = G1Projective::rand(&mut rng).into_affine();
-            let g2 = G2Projective::rand(&mut rng).into_affine();
-            let b1 = Com1::<F>::linear_map(&g1);
-            let b2 = Com2::<F>::linear_map(&g2);
-            let bt = ComT::<F>::pairing(b1.clone(), b2.clone());
-            let bt2 = ComT::<F>::linear_map_PPE(&F::pairing(b1.1.clone(), b2.1.clone()));
+            let a1 = G1Projective::rand(&mut rng).into_affine();
+            let a2 = G2Projective::rand(&mut rng).into_affine();
+            let at = F::pairing(a1.clone(), a2.clone());
+            let b1 = Com1::<F>::linear_map(&a1);
+            let b2 = Com2::<F>::linear_map(&a2);
+            let bt = ComT::<F>::linear_map_PPE(&at);
 
             assert_eq!(b1.0, G1Affine::zero());
-            assert_eq!(b1.1, g1);
+            assert_eq!(b1.1, a1);
             assert_eq!(b2.0, G2Affine::zero());
-            assert_eq!(b2.1, g2);
+            assert_eq!(b2.1, a2);
             assert_eq!(bt.0, Fqk::one());
             assert_eq!(bt.1, Fqk::one());
             assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, F::pairing(b1.1.clone(), b2.1.clone()));
-            assert_eq!(bt, bt2);
+            assert_eq!(bt.3, F::pairing(a1.clone(), a2.clone()));
         }
 
-        #[allow(non_snake_case)]
+        // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
         #[test]
-        fn test_PPE_linear_bilinear_map_commutativity() {
-
-            let mut rng = test_rng();
-            let g1 = G1Projective::rand(&mut rng).into_affine();
-            let g2 = G2Projective::rand(&mut rng).into_affine();
-            let gt = F::pairing::<G1Affine, G2Affine>(g1.clone(), g2.clone());
-            let b1 = Com1::<F>::linear_map(&g1);
-            let b2 = Com2::<F>::linear_map(&g2);
-
-            let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
-            let bt_bilin_lin = ComT::<F>::linear_map_PPE(&gt);
-
-            assert_eq!(bt_lin_bilin.0, Fqk::one());
-            assert_eq!(bt_lin_bilin.1, Fqk::one());
-            assert_eq!(bt_lin_bilin.2, Fqk::one());
-            assert_eq!(bt_bilin_lin.0, Fqk::one());
-            assert_eq!(bt_bilin_lin.1, Fqk::one());
-            assert_eq!(bt_bilin_lin.2, Fqk::one());
-            assert_eq!(bt_lin_bilin.3, bt_bilin_lin.3);
-        }
-
-        #[allow(non_snake_case)]
-        #[test]
-        fn test_MSG1_linear_maps() {
+        fn test_MSMEG1_linear_maps() {
 
             let mut rng = test_rng();
             let key = CRS::<F>::generate_crs(&mut rng);
 
-            let g1 = G1Projective::rand(&mut rng).into_affine();
-            let g2 = Fr::rand(&mut rng);
-            let b1 = Com1::<F>::linear_map(&g1);
-            let b2 = Com2::<F>::scalar_linear_map(&g2, &key);
+            let a1 = G1Projective::rand(&mut rng).into_affine();
+            let a2 = Fr::rand(&mut rng);
+            let at = a1.mul(a2).into_affine();
+            let b1 = Com1::<F>::linear_map(&a1);
+            let b2 = Com2::<F>::scalar_linear_map(&a2, &key);
+            let bt = ComT::<F>::linear_map_MSG1(&at, &key);
 
             assert_eq!(b1.0, G1Affine::zero());
-            assert_eq!(b1.1, g1);
-            assert_eq!(b2.0, key.v[1].0.mul(g2));
-            assert_eq!(b2.1, (key.v[1].1 + key.g2_gen).mul(g2));
+            assert_eq!(b1.1, a1);
+            assert_eq!(b2.0, key.v[1].0.mul(a2));
+            assert_eq!(b2.1, (key.v[1].1 + key.g2_gen).mul(a2));
+            assert_eq!(bt.0, Fqk::one());
+            assert_eq!(bt.1, Fqk::one());
+            assert_eq!(bt.2, F::pairing(at.clone(), key.v[1].0.clone()));
+            assert_eq!(bt.3, F::pairing(at.clone(), key.v[1].1.clone() + key.g2_gen.clone()));
         }
 
-        #[allow(non_snake_case)]
+        // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
         #[test]
-        fn test_MSG1_linear_bilinear_map_commutativity() {
+        fn test_MSMEG2_linear_maps() {
 
             let mut rng = test_rng();
             let key = CRS::<F>::generate_crs(&mut rng);
 
-            let g1 = G1Projective::rand(&mut rng).into_affine();
-            let g2 = Fr::rand(&mut rng);
-            let gt = g1.mul(g2).into_affine();
-            let b1 = Com1::<F>::linear_map(&g1);
-            let b2 = Com2::<F>::scalar_linear_map(&g2, &key);
+            let a1 = Fr::rand(&mut rng);
+            let a2 = G2Projective::rand(&mut rng).into_affine();
+            let at = a2.mul(a1).into_affine();
+            let b1 = Com1::<F>::scalar_linear_map(&a1, &key);
+            let b2 = Com2::<F>::linear_map(&a2);
+            let bt = ComT::<F>::linear_map_MSG2(&at, &key);
 
-            let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
-            let bt_bilin_lin = ComT::<F>::linear_map_MSG1(&gt, &key);
-
-            assert_eq!(bt_lin_bilin.0, Fqk::one());
-            assert_eq!(bt_lin_bilin.1, Fqk::one());
-            assert_eq!(bt_lin_bilin.2, F::pairing(gt.clone(), key.v[1].0.clone()));
-            assert_eq!(bt_lin_bilin.3, F::pairing(gt.clone(), key.v[1].1.clone() + key.g2_gen.clone()));
-            assert_eq!(bt_lin_bilin, bt_bilin_lin);
-        }
-
-        #[allow(non_snake_case)]
-        #[test]
-        fn test_MSG2_linear_maps() {
-
-            let mut rng = test_rng();
-            let key = CRS::<F>::generate_crs(&mut rng);
-
-            let g1 = Fr::rand(&mut rng);
-            let g2 = G2Projective::rand(&mut rng).into_affine();
-            let b1 = Com1::<F>::scalar_linear_map(&g1, &key);
-            let b2 = Com2::<F>::linear_map(&g2);
-
-            assert_eq!(b1.0, key.u[1].0.mul(g1));
-            assert_eq!(b1.1, (key.u[1].1 + key.g1_gen).mul(g1));
+            assert_eq!(b1.0, key.u[1].0.mul(a1));
+            assert_eq!(b1.1, (key.u[1].1 + key.g1_gen).mul(a1));
             assert_eq!(b2.0, G2Affine::zero());
-            assert_eq!(b2.1, g2);
-        }
-
-        #[allow(non_snake_case)]
-        #[test]
-        fn test_MSG2_linear_bilinear_map_commutativity() {
-
-            let mut rng = test_rng();
-            let key = CRS::<F>::generate_crs(&mut rng);
-
-            let g1 = Fr::rand(&mut rng);
-            let g2 = G2Projective::rand(&mut rng).into_affine();
-            let b1 = Com1::<F>::scalar_linear_map(&g1, &key);
-            let b2 = Com2::<F>::linear_map(&g2);
-            let gt = g2.mul(g1).into_affine();
-
-            let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
-            let bt_bilin_lin = ComT::<F>::linear_map_MSG2(&gt, &key);
-
-            assert_eq!(bt_lin_bilin.0, Fqk::one());
-            assert_eq!(bt_lin_bilin.1, F::pairing(key.u[1].0.clone(), gt.clone()));
-            assert_eq!(bt_lin_bilin.2, Fqk::one());
-            assert_eq!(bt_lin_bilin.3, F::pairing(key.u[1].1.clone() + key.g1_gen.clone(), gt.clone()));
-            assert_eq!(bt_lin_bilin, bt_bilin_lin);
+            assert_eq!(b2.1, a2);
+            assert_eq!(bt.0, Fqk::one());
+            assert_eq!(bt.1, F::pairing(key.u[1].0.clone(), at.clone()));
+            assert_eq!(bt.2, Fqk::one());
+            assert_eq!(bt.3, F::pairing(key.u[1].1.clone() + key.g1_gen.clone(), at.clone()));
         }
     }
 

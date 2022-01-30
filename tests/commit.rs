@@ -1,39 +1,71 @@
+#![allow(non_snake_case)]
 extern crate groth_sahai;
 
 #[cfg(test)]
-mod commit_int_tests {
+mod SXDH_commit_tests {
 
-    /*
     use ark_bls12_381::{Bls12_381 as F};
-    use ark_ec::{ProjectiveCurve, PairingEngine};
+    use ark_ec::{PairingEngine, ProjectiveCurve, AffineCurve};
     use ark_ff::UniformRand;
     use ark_std::test_rng;
 
-    use groth_sahai::{B1, B2, BT, Com1, Com2, ComT};
+    use groth_sahai::CRS;
+    use groth_sahai::data_structures::*;
+//    use groth_sahai::commit::*;
 
     type G1Projective = <F as PairingEngine>::G1Projective;
-    type G1Affine = <F as PairingEngine>::G1Affine;
     type G2Projective = <F as PairingEngine>::G2Projective;
-    type G2Affine = <F as PairingEngine>::G2Affine;
-    type GT = <F as PairingEngine>::Fqk;
+    type Fr = <F as PairingEngine>::Fr;
 
-    #[allow(non_snake_case)]
     #[test]
-    fn test_PPE_map_commutativity() {
+    fn PPE_linear_bilinear_map_commutativity() {
 
         let mut rng = test_rng();
-        let g1 = G1Projective::rand(&mut rng).into_affine();
-        let g2 = G2Projective::rand(&mut rng).into_affine();
-        let gt = F::pairing::<G1Affine, G2Affine>(g1.clone(), g2.clone());
-        let b1 = Com1::<F>::linear_map(g1);
-        let b2 = Com2::<F>::linear_map(g2);
-        let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
-        let bt_bilin_lin = ComT::<F>::linear_map(gt);
+        let a1 = G1Projective::rand(&mut rng).into_affine();
+        let a2 = G2Projective::rand(&mut rng).into_affine();
+        let at = F::pairing(a1.clone(), a2.clone());
+        let b1 = Com1::<F>::linear_map(&a1);
+        let b2 = Com2::<F>::linear_map(&a2);
 
-        assert_eq!(bt_lin_bilin.0, bt_bilin_lin.0);
-        assert_eq!(bt_lin_bilin.1, bt_bilin_lin.1);
-        assert_eq!(bt_lin_bilin.2, bt_bilin_lin.2);
-        assert_eq!(bt_lin_bilin.3, bt_bilin_lin.3);
+        let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
+        let bt_bilin_lin = ComT::<F>::linear_map_PPE(&at);
+
+        assert_eq!(bt_lin_bilin, bt_bilin_lin);
     }
-    */
+
+    #[test]
+    fn MSMEG1_linear_bilinear_map_commutativity() {
+
+        let mut rng = test_rng();
+        let key = CRS::<F>::generate_crs(&mut rng);
+
+        let a1 = G1Projective::rand(&mut rng).into_affine();
+        let a2 = Fr::rand(&mut rng);
+        let at = a1.mul(a2).into_affine();
+        let b1 = Com1::<F>::linear_map(&a1);
+        let b2 = Com2::<F>::scalar_linear_map(&a2, &key);
+
+        let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
+        let bt_bilin_lin = ComT::<F>::linear_map_MSG1(&at, &key);
+
+        assert_eq!(bt_lin_bilin, bt_bilin_lin);
+    }
+
+    #[test]
+    fn MSMEG2_linear_bilinear_map_commutativity() {
+
+        let mut rng = test_rng();
+        let key = CRS::<F>::generate_crs(&mut rng);
+
+        let a1 = Fr::rand(&mut rng);
+        let a2 = G2Projective::rand(&mut rng).into_affine();
+        let at = a2.mul(a1).into_affine();
+        let b1 = Com1::<F>::scalar_linear_map(&a1, &key);
+        let b2 = Com2::<F>::linear_map(&a2);
+
+        let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
+        let bt_bilin_lin = ComT::<F>::linear_map_MSG2(&at, &key);
+
+        assert_eq!(bt_lin_bilin, bt_bilin_lin);
+    }
 }
