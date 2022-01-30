@@ -20,6 +20,7 @@ use ark_std::{
 };
 
 use crate::data_structures::*;
+use crate::GSType;
 use crate::generator::CRS;
 use crate::commit::*;
 
@@ -27,24 +28,29 @@ pub trait Equ {}
 /// A single Groth-Sahai statement.
 pub trait Equation<E: PairingEngine, A1, A2, AT>: Equ {
 
+    // TODO: Consider binding the variables together into a witness struct
+    // TODO: Consider binding the commitment and variables together in API
+    // TODO: Expose option to parallelize proof computations in API
+    /// Produce a proof `(π, θ)` that the x and y variables satisfy a single Groth-Sahai statement / equation.
     fn prove<CR>(&self, x_vars: &Vec<A1>, y_vars: &Vec<A2>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E> where CR: Rng + CryptoRng;
+    fn get_type(&self) -> GSType;
 }
 /// A collection of Groth-Sahai compatible bilinear equations.
 
 pub type Statement = Vec<dyn Equ>;
 
-/// A Groth-Sahai witness, expressed as variables in a corresponding [`Equation`](self::Equ).
-pub struct EquWitness<A1, A2> {
+/// A Groth-Sahai witness, expressed as variables across one or more [`Equation`](self::Equ)s.
+pub struct Witness<A1, A2> {
     x_vars: Vec<A1>,
     y_vars: Vec<A2>
 }
 /// A witness-indistinguishable proof for a single [`Equation`](self::Equ).
 pub struct EquProof<E: PairingEngine> {
-    pi: Vec<Com2<E>>,
-    theta: Vec<Com1<E>>
+    pub pi: Vec<Com2<E>>,
+    pub theta: Vec<Com1<E>>,
+    pub equ_type: GSType
 }
 
-// TODO: Express the combination of proofs at a finer-grained level.
 /// A collection of proofs for Groth-Sahai compatible bilinear equations.
 pub type Proof<E> = Vec<EquProof<E>>;
 
@@ -59,8 +65,18 @@ pub struct PPE<E: PairingEngine> {
     pub gamma: Matrix<E::Fr>,
     pub target: E::Fqk
 }
+
+// TODO: Batch prove for any kind of equation, more efficiently than just appending Vec's of
+// individual vars / commitments (would require the user restructuring their Gamma's and A/B
+// constants to consider list of variables for all equations
+
 impl<E: PairingEngine> Equ for PPE<E> {}
 impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> {
+
+    #[inline(always)]
+    fn get_type(&self) -> GSType {
+        GSType::PairingProduct
+    }
 
     fn prove<CR>(&self, x_vars: &Vec<E::G1Affine>, y_vars: &Vec<E::G2Affine>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E> 
     where
@@ -120,7 +136,8 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
 
         EquProof::<E> {
             pi,
-            theta
+            theta,
+            equ_type: self.get_type()
         }
     }
 }
@@ -168,3 +185,65 @@ pub struct QuadEqu<E: PairingEngine> {
 impl<E: PairingEngine> Equ for QuadEqu<E> {}
 impl<E: PairingEngine> Equation<E, E::Fr, E::Fr, E::Fr> for QuadEqu<E> {}
 */
+
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+
+    use ark_bls12_381::{Bls12_381 as F};
+    use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
+    use ark_ff::{Zero, One};
+    use ark_std::test_rng;
+
+    use super::*;
+    use crate::GSType;
+
+    type G1Affine = <F as PairingEngine>::G1Affine;
+    type G2Affine = <F as PairingEngine>::G2Affine;
+    type Fr = <F as PairingEngine>::Fr;
+    type Fqk = <F as PairingEngine>::Fqk;
+
+    #[test]
+    fn test_PPE_equation_type() {
+
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let equ: PPE<F> = PPE::<F> {
+            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            gamma: vec![vec![Fr::rand(&mut rng)]],
+            target: Fqk::rand(&mut rng)
+        };
+
+        assert_eq!(equ.get_type(), GSType::PairingProduct);
+    }
+
+    #[test]
+    fn test_PPE_proof_type() {
+
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let xvars: Vec<G1Affine> = vec![
+            crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine(),
+            crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()
+        ];
+        let yvars: Vec<G2Affine> = vec![
+            crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()
+        ];
+        let xcoms: Commit1<F> = batch_commit_G1(&xvars, &crs, &mut rng);
+        let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
+
+        let equ: PPE<F> = PPE::<F> {
+            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(), crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
+            target: Fqk::rand(&mut rng)
+        };
+        let proof: EquProof<F> = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
+
+        assert_eq!(proof.equ_type, GSType::PairingProduct);
+    }
+}

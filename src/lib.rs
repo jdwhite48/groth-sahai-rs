@@ -4,6 +4,7 @@ pub mod commit;
 pub mod prover;
 
 /// Groth-Sahai statement (i.e. bilinear equation) types.
+#[derive(Debug, PartialEq, Eq)]
 pub enum GSType {
     PairingProduct,
     MultiScalarG1,
