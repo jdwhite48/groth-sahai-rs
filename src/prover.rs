@@ -32,8 +32,16 @@ pub trait Equation<E: PairingEngine, A1, A2, AT>: Equ {
     // TODO: Consider binding the commitment and variables together in API
     // TODO: Expose option to parallelize proof computations in API
     /// Produce a proof `(π, θ)` that the x and y variables satisfy a single Groth-Sahai statement / equation.
-    fn prove<CR>(&self, x_vars: &Vec<A1>, y_vars: &Vec<A2>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E> where CR: Rng + CryptoRng;
+    fn prove<CR>(&self, x_vars: &Vec<A1>, y_vars: &Vec<A2>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E>
+        where
+            CR: Rng + CryptoRng;
+    /// Verify that a single Groth-Sahai equation is satisfied by the prover's variables.
+    // TODO: Consider binding the commitment and proof together in API
+    fn verify(&self, proof: &EquProof<E>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>) -> bool;
     fn get_type(&self) -> GSType;
+
+    // TODO: provide a helper function that assesses whether the equation being proven about is
+    // zero-knowledge and not just witness-indistinguishable?
 }
 /// A collection of Groth-Sahai compatible bilinear equations.
 
@@ -140,6 +148,30 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
             equ_type: self.get_type()
         }
     }
+
+    fn verify(&self, proof: &EquProof<E>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>) -> bool {
+
+        let is_parallel = true;
+
+        let lin_a_com_y = ComT::<E>::pairing_sum(&Com1::<E>::batch_linear_map(&self.a_consts), &y_coms.coms);
+
+        let com_x_lin_b = ComT::<E>::pairing_sum(&x_coms.coms, &Com2::<E>::batch_linear_map(&self.b_consts));
+
+        let stmt_com_y: Matrix<Com2<E>> = vec_to_col_vec(&y_coms.coms).left_mul(&self.gamma, is_parallel);
+        let com_x_stmt_com_y = ComT::<E>::pairing_sum(&x_coms.coms, &col_vec_to_vec(&stmt_com_y));
+
+        let lin_t = ComT::<E>::linear_map_PPE(&self.target);
+
+        let com1_pf2 = ComT::<E>::pairing_sum(&col_vec_to_vec(&crs.u), &proof.pi);
+
+        let pf1_com2 = ComT::<E>::pairing_sum(&proof.theta, &col_vec_to_vec(&crs.v));
+
+        let lhs: ComT<E> = lin_a_com_y + com_x_lin_b + com_x_stmt_com_y;
+        let rhs: ComT<E> = lin_t + com1_pf2 + pf1_com2;
+        println!("lhs: {:?}\n\n rhs: {:?}", lhs, rhs);
+
+        lhs == rhs
+    }
 }
 
 /*
@@ -193,7 +225,7 @@ mod tests {
 
     use ark_bls12_381::{Bls12_381 as F};
     use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
-    use ark_ff::{Zero, One};
+    use ark_ff::{Zero, One, field_new};
     use ark_std::test_rng;
 
     use super::*;
@@ -245,5 +277,42 @@ mod tests {
         let proof: EquProof<F> = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
 
         assert_eq!(proof.equ_type, GSType::PairingProduct);
+    }
+
+    #[test]
+    fn PPE_verifies() {
+
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        // An equation of the form e(X_2, c_2) * e(c_1, Y_1) * e(X_1, Y_1)^5 = t where t = e(3 g1, c_2) * e(c_1, 4 g2) * e(2 g1, 4 g2)^5 is satisfied
+        // by variables X_1, X_2 in G1 and Y_1 in G2 and constants c_1 in G1 and c_2 in G2
+
+        // X = [ X_1, X_2 ] = [2 g1, 3 g1]
+        let xvars: Vec<G1Affine> = vec![
+            crs.g1_gen.mul(field_new!(Fr, "2")).into_affine(),
+            crs.g1_gen.mul(field_new!(Fr, "3")).into_affine()
+        ];
+        // Y = [ Y_1 ] = [4 g2]
+        let yvars: Vec<G2Affine> = vec![
+            crs.g2_gen.mul(field_new!(Fr, "4")).into_affine()
+        ];
+        let xcoms: Commit1<F> = batch_commit_G1(&xvars, &crs, &mut rng);
+        let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
+
+        // A = [ c_1 ] (i.e. e(c_1, Y_1) term in equation)
+        let a_consts: Vec<G1Affine> = vec![ crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine() ];
+        // B = [ 0, c_2 ] (i.e. only e(X_2, c_2) term in equation)
+        let b_consts: Vec<G2Affine> = vec![ G2Affine::zero(), crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()];
+        // Gamma = [ 5, 0 ] (i.e. only e(X_1, Y_1)^5 term)
+        let gamma: Matrix<Fr> = vec![vec![field_new!(Fr, "5")], vec![Fr::zero()]];
+        // Target -> all together (n.b. e(X_1, Y_1)^5 = e(X_1, 5 Y_1) = e(5 X_1, Y_1) by the properties of non-degenerate bilinear maps)
+        let target: Fqk = F::pairing(xvars[1].clone(), b_consts[1].clone()) * F::pairing(a_consts[0].clone(), yvars[0].clone()) * F::pairing(xvars[0].clone(), yvars[0].mul(gamma[0][0].clone()).into_affine());
+        let equ: PPE<F> = PPE::<F> {
+            a_consts, b_consts, gamma, target
+        };
+
+        let proof: EquProof<F> = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
+        assert!(equ.verify(&proof, &xcoms, &ycoms, &crs));
     }
 }

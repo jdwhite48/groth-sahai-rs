@@ -124,7 +124,7 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     /// with respect to the bilinear pairing over the bilinear group (G1, G2, GT).
     fn pairing(x: C1, y: C2) -> Self;
     /// The entry-wise sum of bilinear pairings over the GS commitment group.
-    fn pairing_sum(x: Vec<C1>, y: Vec<C2>) -> Self;
+    fn pairing_sum(x_vec: &Vec<C1>, y_vec: &Vec<C2>) -> Self;
 
     /// The linear map from GT to BT for pairing-product equations.
     #[allow(non_snake_case)]
@@ -572,12 +572,12 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     }
 
     #[inline]
-    fn pairing_sum(x_vec: Vec<Com1<E>>, y_vec: Vec<Com2<E>>) -> ComT<E> {
+    fn pairing_sum(x_vec: &Vec<Com1<E>>, y_vec: &Vec<Com2<E>>) -> ComT<E> {
 
         assert_eq!(x_vec.len(), y_vec.len());
-        let xy_vec = x_vec.into_iter().zip(y_vec).collect::<Vec<(Com1<E>, Com2<E>)>>();
+        let xy_vec = x_vec.into_iter().zip(y_vec).collect::<Vec<(&Com1<E>, &Com2<E>)>>();
 
-        xy_vec.into_iter().map(|(x, y)| {
+        xy_vec.into_iter().map(|(&x, &y)| {
             Self::pairing(x, y)
         }).sum()
     }
@@ -1520,7 +1520,7 @@ mod tests {
             let x = vec![x1, x2];
             let y = vec![y1, y2];
             let exp: ComT<F> = vec![ ComT::<F>::pairing(x1, y1), ComT::<F>::pairing(x2, y2) ].into_iter().sum();
-            let res: ComT<F> = ComT::<F>::pairing_sum(x, y);
+            let res: ComT<F> = ComT::<F>::pairing_sum(&x, &y);
 
             assert_eq!(exp, res);
         }
@@ -1623,11 +1623,18 @@ mod tests {
             let g2 = G2Projective::rand(&mut rng).into_affine();
             let b1 = Com1::<F>::linear_map(&g1);
             let b2 = Com2::<F>::linear_map(&g2);
+            let bt = ComT::<F>::pairing(b1.clone(), b2.clone());
+            let bt2 = ComT::<F>::linear_map_PPE(&F::pairing(b1.1.clone(), b2.1.clone()));
 
             assert_eq!(b1.0, G1Affine::zero());
             assert_eq!(b1.1, g1);
             assert_eq!(b2.0, G2Affine::zero());
             assert_eq!(b2.1, g2);
+            assert_eq!(bt.0, Fqk::one());
+            assert_eq!(bt.1, Fqk::one());
+            assert_eq!(bt.2, Fqk::one());
+            assert_eq!(bt.3, F::pairing(b1.1.clone(), b2.1.clone()));
+            assert_eq!(bt, bt2);
         }
 
         #[allow(non_snake_case)]
