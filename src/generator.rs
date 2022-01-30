@@ -6,8 +6,8 @@ use ark_ec::{AffineCurve, ProjectiveCurve, PairingEngine};
 
 /// Commitment keys for G1 and G2, as well as generators for the bilinear group
 pub struct CRS<E: PairingEngine> {
-    pub u: Matrix<Com1<E>>,
-    pub v: Matrix<Com2<E>>,
+    pub u: Vec<Com1<E>>,
+    pub v: Vec<Com2<E>>,
     pub g1_gen: E::G1Affine,
     pub g2_gen: E::G2Affine,
     pub gt_gen: E::Fqk,
@@ -70,8 +70,8 @@ impl<E: PairingEngine> CRS<E> {
         let u22 = Com2::<E>(u2.into_affine(), v2.into_affine());
 
         CRS::<E> {
-            u: vec![vec![u11], vec![u12]],
-            v: vec![vec![u21], vec![u22]],
+            u: vec![u11, u12],
+            v: vec![u21, u22],
             g1_gen: p1.into_affine(),
             g2_gen: p2.into_affine(),
             gt_gen: E::pairing::<E::G1Affine, E::G2Affine>(p1.into_affine(), p2.into_affine())
@@ -112,10 +112,10 @@ mod tests {
         assert_ne!(crs.gt_gen, GT::one());
 
         // Generated commitment keys are non-trivial
-        assert_ne!(crs.u[0][0], Com1::zero());
-        assert_ne!(crs.u[1][0], Com1::zero());
-        assert_ne!(crs.v[0][0], Com2::zero());
-        assert_ne!(crs.v[1][0], Com2::zero());
+        assert_ne!(crs.u[0], Com1::zero());
+        assert_ne!(crs.u[1], Com1::zero());
+        assert_ne!(crs.v[0], Com2::zero());
+        assert_ne!(crs.v[1], Com2::zero());
     }
 }
 

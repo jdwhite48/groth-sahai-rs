@@ -72,7 +72,7 @@ where
 
     // c := i_1(x) + r_1 u_1 + r_2 u_2
     Commit1::<E> {
-        coms: vec![Com1::<E>::linear_map(&xvar) + key.u[0][0].scalar_mul(&r1) + key.u[1][0].scalar_mul(&r2)],
+        coms: vec![Com1::<E>::linear_map(&xvar) + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r1) + vec_to_col_vec(&key.u)[1][0].scalar_mul(&r2)],
         rand: vec![vec![r1, r2]]
     }
 }
@@ -95,7 +95,7 @@ where
     let lin_x: Matrix<Com1<E>> = vec_to_col_vec(&Com1::<E>::batch_linear_map(xvars));
 
     // c := i_1(X) + Ru (m x 1 matrix)
-    let coms = lin_x.add(&key.u.left_mul(&R, false));
+    let coms = lin_x.add(&vec_to_col_vec(&key.u).left_mul(&R, false));
 
     Commit1::<E> {
         coms: col_vec_to_vec(&coms),
@@ -113,7 +113,7 @@ where
 
     // c := i_1'(x) + r u_1
     Commit1::<E> {
-        coms: vec![Com1::<E>::scalar_linear_map(scalar_xvar, key) + key.u[0][0].scalar_mul(&r)],
+        coms: vec![Com1::<E>::scalar_linear_map(scalar_xvar, key) + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r)],
         rand: vec![vec![ r ]]
     }
 }
@@ -133,7 +133,7 @@ where
     let slin_x: Matrix<Com1<E>> = vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(scalar_xvars, key));
     let ru: Matrix<Com1<E>> = vec_to_col_vec(
         &col_vec_to_vec(&r).into_iter().map( |sca| {
-            key.u[0][0].scalar_mul(&sca)
+            vec_to_col_vec(&key.u)[0][0].scalar_mul(&sca)
         }).collect::<Vec<Com1<E>>>()
     );
 
@@ -156,7 +156,7 @@ where
 
     // d := i_2(y) + s_1 v_1 + s_2 v_2
     Commit2::<E> {
-        coms: vec![Com2::<E>::linear_map(&yvar) + key.v[0][0].scalar_mul(&s1) + key.v[1][0].scalar_mul(&s2)],
+        coms: vec![Com2::<E>::linear_map(&yvar) + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s1) + vec_to_col_vec(&key.v)[1][0].scalar_mul(&s2)],
         rand: vec![vec![ s1, s2 ]]
     }
 }
@@ -179,7 +179,7 @@ where
     let lin_y: Matrix<Com2<E>> = vec_to_col_vec(&Com2::<E>::batch_linear_map(yvars));
 
     // c := i_2(Y) + Sv (n x 1 matrix)
-    let coms = lin_y.add(&key.v.left_mul(&S, false));
+    let coms = lin_y.add(&vec_to_col_vec(&key.v).left_mul(&S, false));
 
     Commit2::<E> {
         coms: col_vec_to_vec(&coms),
@@ -197,7 +197,7 @@ where
 
     // d := i_2'(y) + s v_1
     Commit2::<E> {
-        coms: vec![Com2::<E>::scalar_linear_map(scalar_yvar, key) + key.v[0][0].scalar_mul(&s)],
+        coms: vec![Com2::<E>::scalar_linear_map(scalar_yvar, key) + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s)],
         rand: vec![vec![ s ]]
     }
 }
@@ -217,7 +217,7 @@ where
     let slin_y: Matrix<Com2<E>> = vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(scalar_yvars, key));
     let sv: Matrix<Com2<E>> = vec_to_col_vec(
         &col_vec_to_vec(&s).into_iter().map( |sca| {
-            key.v[0][0].scalar_mul(&sca)
+            vec_to_col_vec(&key.v)[0][0].scalar_mul(&sca)
         }).collect::<Vec<Com2<E>>>()
     );
 

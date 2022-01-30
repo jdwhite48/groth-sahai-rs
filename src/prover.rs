@@ -123,7 +123,7 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
         // (2 x 2) field matrix
         let pf_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel).right_mul(&y_coms.rand, is_parallel).add(&pf_rand.transpose().neg());
         // (2 x 1) Com2 matrix
-        let pf_rand_stmt_com2 = crs.v.left_mul(&pf_rand_stmt, is_parallel);
+        let pf_rand_stmt_com2 = vec_to_col_vec(&crs.v).left_mul(&pf_rand_stmt, is_parallel);
 
         let pi = col_vec_to_vec(&x_rand_lin_b.add(&x_rand_stmt_lin_y).add(&pf_rand_stmt_com2));
         assert_eq!(pi.len(), 2);
@@ -137,7 +137,7 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
         let y_rand_stmt_lin_x = vec_to_col_vec(&Com1::<E>::batch_linear_map(&x_vars)).left_mul(&y_rand_stmt, is_parallel);
 
         // (2 x 1) Com1 matrix
-        let pf_rand_com1 = crs.u.left_mul(&pf_rand, is_parallel);
+        let pf_rand_com1 = vec_to_col_vec(&crs.u).left_mul(&pf_rand, is_parallel);
 
         let theta = col_vec_to_vec(&y_rand_lin_a.add(&y_rand_stmt_lin_x).add(&pf_rand_com1));
         assert_eq!(theta.len(), 2);
@@ -162,9 +162,9 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
 
         let lin_t = ComT::<E>::linear_map_PPE(&self.target);
 
-        let com1_pf2 = ComT::<E>::pairing_sum(&col_vec_to_vec(&crs.u), &proof.pi);
+        let com1_pf2 = ComT::<E>::pairing_sum(&crs.u, &proof.pi);
 
-        let pf1_com2 = ComT::<E>::pairing_sum(&proof.theta, &col_vec_to_vec(&crs.v));
+        let pf1_com2 = ComT::<E>::pairing_sum(&proof.theta, &crs.v);
 
         let lhs: ComT<E> = lin_a_com_y + com_x_lin_b + com_x_stmt_com_y;
         let rhs: ComT<E> = lin_t + com1_pf2 + pf1_com2;
