@@ -123,6 +123,8 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     /// The bilinear pairing over the GS commitment group (B1, B2, BT) is the tensor product.
     /// with respect to the bilinear pairing over the bilinear group (G1, G2, GT).
     fn pairing(x: C1, y: C2) -> Self;
+    /// The entry-wise sum of bilinear pairings over the GS commitment group.
+    fn pairing_sum(x: Vec<C1>, y: Vec<C2>) -> Self;
 
     /// The linear map from GT to BT for pairing-product equations.
     #[allow(non_snake_case)]
@@ -567,6 +569,17 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
             E::pairing::<E::G1Affine, E::G2Affine>(x.1.clone(), y.0.clone()),
             E::pairing::<E::G1Affine, E::G2Affine>(x.1.clone(), y.1.clone()),
         )
+    }
+
+    #[inline]
+    fn pairing_sum(x_vec: Vec<Com1<E>>, y_vec: Vec<Com2<E>>) -> ComT<E> {
+
+        assert_eq!(x_vec.len(), y_vec.len());
+        let xy_vec = x_vec.into_iter().zip(y_vec).collect::<Vec<(Com1<E>, Com2<E>)>>();
+
+        xy_vec.into_iter().map(|(x, y)| {
+            Self::pairing(x, y)
+        }).sum()
     }
 
     fn as_matrix(&self) -> Matrix<E::Fqk> {
@@ -1482,6 +1495,34 @@ mod tests {
             assert_eq!(bt.1, F::pairing::<G1Affine, G2Affine>(b1.0.clone(), b2.1.clone()));
             assert_eq!(bt.2, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.0.clone()));
             assert_eq!(bt.3, F::pairing::<G1Affine, G2Affine>(b1.1.clone(), b2.1.clone()));        
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B_pairing_sum() {
+            let mut rng = test_rng();
+            let x1 = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine(),
+            );
+            let x2 = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine(),
+            );
+            let y1 = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine(),
+            );
+            let y2 = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine(),
+            );
+            let x = vec![x1, x2];
+            let y = vec![y1, y2];
+            let exp: ComT<F> = vec![ ComT::<F>::pairing(x1, y1), ComT::<F>::pairing(x2, y2) ].into_iter().sum();
+            let res: ComT<F> = ComT::<F>::pairing_sum(x, y);
+
+            assert_eq!(exp, res);
         }
 
         #[test]
