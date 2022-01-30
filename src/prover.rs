@@ -168,7 +168,6 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
 
         let lhs: ComT<E> = lin_a_com_y + com_x_lin_b + com_x_stmt_com_y;
         let rhs: ComT<E> = lin_t + com1_pf2 + pf1_com2;
-        println!("lhs: {:?}\n\n rhs: {:?}", lhs, rhs);
 
         lhs == rhs
     }
