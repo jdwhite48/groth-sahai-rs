@@ -36,11 +36,11 @@ cargo build
 
 ### Test
 
-To run the unit tests (in the source files) and integration tests (in `tests`):
+To run the unit tests (in each source file) and integration tests (in `tests`):
 ```bash
 cargo test
 ```
-To run the benchmark tests (public API; in `benches`):
+To run the benchmark tests (in `benches`):
 ```bash
 cargo bench
 ```
@@ -51,17 +51,19 @@ While this library is not yet published, a first draft of the documentation can 
 ```bash
 cargo doc --open
 ```
-The API is subject to change.
+The API is subject to change, and is still very much a work in progress.
 
 ## Contributing
 
-If you would like to contribute, but have not been invited as a direct collaborator to the project, follow the procedure below:
+If you notice a bug, would like to ask a question, or want to propose a new feature, feel free to open an issue!
+
+If you would like to contribute, but have not been invited as a direct collaborator to the project, follow the procedure below (keeping in mind [these instructions](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue) if you are attempting to resolve an open issue):
 
 1. Fork the project
-2. Create your feature branch (`git checkout -b feature-branch main`)
-3. Commit your changes (`git commit -m 'Add new feature'`)
-4. Push to the branch (`git push origin feature-branch`)
-5. Open a pull request to merge with this repo
+3. Create your feature branch (`git checkout -b feature-branch main`)
+4. Commit your changes (`git commit -m 'Resolves #i; commit message'`)
+5. Push to the branch (`git push origin feature-branch`)
+6. Open a pull request to merge with this repo (preferably linked to an issue)
 
 ## References
 
@@ -76,7 +78,7 @@ If you would like to contribute, but have not been invited as a direct collabora
  * Apache License v2.0 ([LICENSE-APACHE](LICENSE-APACHE))
  * MIT License ([LICENSE-MIT](LICENSE-MIT))
  
-Unless explicitly stated otherwise, any contribution submitted for inclusion in this library shall be dual-licensed as above (as defined in the Apache v2 License), without any additional terms or conditions.
+Unless explicitly stated otherwise, any contribution made to this library shall be dual-licensed as above (as defined in the Apache v2 License), without any additional terms or conditions.
 
 ## Authors
 
