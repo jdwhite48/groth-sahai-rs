@@ -36,7 +36,6 @@ impl<E: PairingEngine> CRS<E> {
         let t2 = E::Fr::rand(rng);
 
         // Projective intermediate values
-        // TODO: OPTIMIZATION -- convert scalar for mul into AsRef<[u64]> to multiply with ProjectiveCurve, if that's more efficient
         let q1 = p1.into_affine().mul(a1);
         let q2 = p2.into_affine().mul(a2);
         let u1 = p1.into_affine().mul(t1);
@@ -57,9 +56,6 @@ impl<E: PairingEngine> CRS<E> {
             v1 = q1.into_affine().mul(t1) - p1;
             v2 = q2.into_affine().mul(t2) - p2;
         }
-
-        // TODO: OPTIMIZATION -- Check if ((u1, v1), (u2, v2)) are normalized and (if not) batch
-        // normalize by slice before converting into affine equivalents?
 
         // B1 commitment key for G1
         let u11 = Com1::<E>(p1.into_affine(), q1.into_affine());

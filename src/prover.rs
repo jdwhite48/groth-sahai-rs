@@ -45,16 +45,12 @@ use crate::commit::*;
 /// A marker trait for an arbitrary Groth-Sahai [`Equation`](self::Equation).
 pub trait Equ {}
 
-// TODO: Split prover, verifier, statement / equation into separate modules (this will make Equ
-// redundant)
-// TODO: Consider binding the commitment and variables together in API
 /// A single equation, defined over an arbitrary bilinear group `(A1, A2, AT)`, that forms
 /// the atomic unit for a [`Statement`](self::Statement).
 pub trait Equation<E: PairingEngine, A1, A2, AT>:
     Equ
 {
 
-    // TODO: Expose option to parallelize proof computations in API
     /// Produce a proof `(π, θ)` that the x and y variables satisfy a single Groth-Sahai statement / equation.
     fn prove<CR>(&self, x_vars: &Vec<A1>, y_vars: &Vec<A2>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E>
         where
@@ -62,16 +58,11 @@ pub trait Equation<E: PairingEngine, A1, A2, AT>:
     /// Verify that a single Groth-Sahai equation is satisfied by the prover's variables.
     fn verify(&self, proof: &EquProof<E>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>) -> bool;
     fn get_type(&self) -> GSType;
-
-    // TODO: provide a helper function that assesses whether the equation being proven about is
-    // zero-knowledge and not just witness-indistinguishable?
 }
 
 /// A collection of Groth-Sahai compatible bilinear [`Equations`](self::Equation).
 pub type Statement = Vec<dyn Equ>;
 
-// TODO: OPTIMIZATION -- To optimize the number of group elements stored, have pi and theta be of type Option<_>
-// where None is interpreted as the zero vector for verification
 /// A witness-indistinguishable proof for a single [`Equation`](self::Equation).
 pub struct EquProof<E: PairingEngine> {
     pub pi: Vec<Com2<E>>,
@@ -94,10 +85,6 @@ pub struct PPE<E: PairingEngine> {
     pub gamma: Matrix<E::Fr>,
     pub target: E::Fqk
 }
-
-// TODO: Batch prove for any kind of equation, more efficiently than just appending Vec's of
-// individual vars / commitments (would require the user restructuring their Gamma's and A/B
-// constants to consider list of variables for all equations
 
 impl<E: PairingEngine> Equ for PPE<E> {}
 impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> {

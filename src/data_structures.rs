@@ -36,11 +36,6 @@ use rayon::prelude::*;
 
 use crate::generator::CRS;
 
-// NOTE: Include traits Add<Self>, Neg<<Output = Self>, Mul<Self>, MulAssign<Scalar>?
-// (but there is no single standard Zero or One element for arbitrary-dimension matrices)
-// (and since Vec is not in crate, can't implement Matrix with trait Mat)
-//
-// TODO: Include helpful functions for identity matrix, zero matrix, inverse (though probably not needed for GS)
 pub trait Mat<Elem: Clone>:
     Eq
     + Clone
@@ -74,7 +69,6 @@ pub trait B<E: PairingEngine>:
 {}
 
 /// Provides linear maps and vector conversions for the base of the GS commitment group.
-// TODO: Convert as_* into Into for B1/B2/BT, and figure out if multiple From<> / Into<> is possible.
 pub trait B1<E: PairingEngine>:
     B<E>
 //    + MulAssign<E::Fr>
@@ -110,9 +104,6 @@ pub trait B2<E: PairingEngine>:
     fn scalar_mul(&self, other: &E::Fr) -> Self;
 }
 
-// TODO: GROTH-SAHAI -- Implement linear map for quadratic equations if needed
-// TODO: Use linear map with GSType match instead, with ad-hoc polymorphism
-// TODO: Allow to multiply with base element (E::Fqk)?
 /// Provides linear maps and matrix conversions for the target of the GS commitment group, as well as the equipped pairing.
 pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     B<E>    
@@ -151,11 +142,9 @@ pub struct Com2<E: PairingEngine>(pub E::G2Affine, pub E::G2Affine);
 #[derive(Copy, Clone, Debug)]
 pub struct ComT<E: PairingEngine>(pub E::Fqk, pub E::Fqk, pub E::Fqk, pub E::Fqk);
 
-// TODO: Move to matrix trait impl (Into vec?)
 /// Collapse matrix into a single vector.
 pub fn col_vec_to_vec<F: Clone>(mat: &Matrix<F>) -> Vec<F> {
 
-    // TODO: OPTIMIZATION -- rewrite this function
     if mat.len() == 1 {
         let mut res = Vec::with_capacity(mat[0].len());
         for elem in mat[0].iter() {
@@ -173,7 +162,6 @@ pub fn col_vec_to_vec<F: Clone>(mat: &Matrix<F>) -> Vec<F> {
     }
 }
 
-// TODO: Move to matrix trait impl (From vec?)
 /// Expand vector into column vector (in matrix form).
 pub fn vec_to_col_vec<F: Clone>(vec: &Vec<F>) -> Matrix<F> {
 
@@ -285,8 +273,6 @@ macro_rules! impl_base_commit_groups {
 }
 impl_base_commit_groups!(Com1, Com2);
 
-// TODO: Figure out how to include G1Affine / G2Affine in macro as match for Com1 / Com2, respectively
-
 impl<E: PairingEngine> Zero for Com1<E> {
     #[inline]
     fn zero() -> Self {
@@ -341,8 +327,6 @@ impl<E: PairingEngine> From<Matrix<E::G2Affine>> for Com2<E> {
         )
     }
 }
-
-// TODO: Parallelize batched linear maps for B1/B2
 
 impl<E: PairingEngine> B1<E> for Com1<E> {
     fn as_col_vec(&self) -> Matrix<E::G1Affine> {
@@ -563,7 +547,6 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
     fn pairing(x: Com1<E>, y: Com2<E>) -> ComT<E> {
         ComT::<E>(
-            // TODO: OPTIMIZATION ? -- If either element is 0 (G1 / G2), just output 1 (Fqk)
             E::pairing::<E::G1Affine, E::G2Affine>(x.0.clone(), y.0.clone()),
             E::pairing::<E::G1Affine, E::G2Affine>(x.0.clone(), y.1.clone()),
             E::pairing::<E::G1Affine, E::G2Affine>(x.1.clone(), y.0.clone()),
@@ -610,11 +593,7 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     }
 }
 
-// TODO: Clean up the option to specify parallel computation
-// TODO: Convert all for loops to iter / par_iter
-
 // Matrix multiplication algorithm based on source: https://boydjohnson.dev/blog/concurrency-matrix-multiplication/
-// TODO: OPTIMIZATION -- Use more efficient matrix multiplication algorithm than naive
 
 macro_rules! impl_base_commit_mats {
     (
@@ -688,7 +667,6 @@ macro_rules! impl_base_commit_mats {
                    .collect::<Vec<Vec<$com<E>>>>()
                 }
 
-                /* TODO: Paralellize scalar_mul */
                 fn scalar_mul(&self, other: &Self::Other) -> Self {
                     let m = self.len();
                     let n = self[0].len();
@@ -851,8 +829,6 @@ macro_rules! impl_base_commit_mats {
 }
 impl_base_commit_mats![Com1, Com2];
 
-// TODO: combine with commitment matrix definition (i.e. if Com1, Com2 can be represented by
-// fields, with multiplication wrt its scalar field. Or match/switch for minor differences in impl)
 /*
 // Implements scalar point-multiplication for matrices of commitment group elements
 impl MulAssign<F> for Matrix<F> {
