@@ -46,7 +46,7 @@ mod SXDH_commit_tests {
         let b2 = Com2::<F>::scalar_linear_map(&a2, &key);
 
         let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
-        let bt_bilin_lin = ComT::<F>::linear_map_MSG1(&at, &key);
+        let bt_bilin_lin = ComT::<F>::linear_map_MSMEG1(&at, &key);
 
         assert_eq!(bt_lin_bilin, bt_bilin_lin);
     }
@@ -64,7 +64,7 @@ mod SXDH_commit_tests {
         let b2 = Com2::<F>::linear_map(&a2);
 
         let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
-        let bt_bilin_lin = ComT::<F>::linear_map_MSG2(&at, &key);
+        let bt_bilin_lin = ComT::<F>::linear_map_MSMEG2(&at, &key);
 
         assert_eq!(bt_lin_bilin, bt_bilin_lin);
     }

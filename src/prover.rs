@@ -28,7 +28,6 @@ pub trait Equ {}
 /// A single Groth-Sahai statement.
 pub trait Equation<E: PairingEngine, A1, A2, AT>: Equ {
 
-    // TODO: Consider binding the variables together into a witness struct
     // TODO: Consider binding the commitment and variables together in API
     // TODO: Expose option to parallelize proof computations in API
     /// Produce a proof `(π, θ)` that the x and y variables satisfy a single Groth-Sahai statement / equation.
@@ -36,24 +35,20 @@ pub trait Equation<E: PairingEngine, A1, A2, AT>: Equ {
         where
             CR: Rng + CryptoRng;
     /// Verify that a single Groth-Sahai equation is satisfied by the prover's variables.
-    // TODO: Consider binding the commitment and proof together in API
     fn verify(&self, proof: &EquProof<E>, x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>) -> bool;
     fn get_type(&self) -> GSType;
 
     // TODO: provide a helper function that assesses whether the equation being proven about is
     // zero-knowledge and not just witness-indistinguishable?
 }
-/// A collection of Groth-Sahai compatible bilinear equations.
 
+/// A collection of Groth-Sahai compatible bilinear equations.
 pub type Statement = Vec<dyn Equ>;
 
-/// A Groth-Sahai witness, expressed as variables across one or more [`Equation`](self::Equ)s.
-pub struct Witness<A1, A2> {
-    x_vars: Vec<A1>,
-    y_vars: Vec<A2>
-}
+// TODO: OPTIMIZATION -- To optimize the number of group elements stored, have pi and theta be of type Option<_>
+// where None is interpreted as the zero vector for verification
 /// A witness-indistinguishable proof for a single [`Equation`](self::Equ).
-pub struct EquProof<E: PairingEngine> {
+pub struct EquProof<E: PairingEngine> { 
     pub pi: Vec<Com2<E>>,
     pub theta: Vec<Com1<E>>,
     pub equ_type: GSType
@@ -173,21 +168,113 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
     }
 }
 
-/*
 /// A multi-scalar multiplication equation in [`G1`](ark_ec::PairingEngine::G1Affine), equipped with point-scalar multiplication as pairing.
 ///
 /// For example, the equation `n * W + (v * U)^5 = t_1` can be expressed by the following
 /// (private) witness variables `X = [U, W]`, `Y = [v]`, (public) constants `A = [0]`, `B = [0, n]`,
 /// pairing exponent matrix `gamma = [[5], [0]]`, and `target = t_1` in `G1`.
 pub struct MSMEG1<E: PairingEngine> {
-    a_consts: Vec<E::G1Affine>,
-    b_consts: Vec<E::Fr>,
-    gamma: Matrix<E::Fr>,
-    target: E::G1Affine
+    pub a_consts: Vec<E::G1Affine>,
+    pub b_consts: Vec<E::Fr>,
+    pub gamma: Matrix<E::Fr>,
+    pub target: E::G1Affine
 }
 impl<E: PairingEngine> Equ for MSMEG1<E> {}
-impl<E: PairingEngine> Equation<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E> {}
+impl<E: PairingEngine> Equation<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E> {
 
+    #[inline(always)]
+    fn get_type(&self) -> GSType {
+        GSType::MultiScalarG1
+    }
+
+    fn prove<CR>(&self, x_vars: &Vec<E::G1Affine>, scalar_y_vars: &Vec<E::Fr>, x_coms: &Commit1<E>, scalar_y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E> 
+    where
+        CR: Rng + CryptoRng
+    {
+        // Gamma is an (m x n') matrix with m x variables and n' scalar y variables
+        // x's commit randomness (i.e. R) is a (m x 2) matrix
+        assert_eq!(x_vars.len(), x_coms.rand.len());
+        assert_eq!(self.gamma.len(), x_coms.rand.len());
+        let _m = x_vars.len();
+        // scalar y's commit randomness (i.e. s) is a (n' x 1) matrix (i.e. column vector)
+        assert_eq!(scalar_y_vars.len(), scalar_y_coms.rand.len());
+        assert_eq!(self.gamma[0].len(), scalar_y_coms.rand.len());
+        let _n_prime = scalar_y_vars.len();
+
+        let is_parallel = true;
+
+        // (2 x m) field matrix R^T, in GS parlance
+        let x_rand_trans = x_coms.rand.transpose();
+        // (2 x n') field matrix s^T, in GS parlance
+        let y_rand_trans = scalar_y_coms.rand.transpose();
+        // (1 x 2) field matrix T, in GS parlance
+        let pf_rand: Matrix<E::Fr> = vec![
+            vec![ E::Fr::rand(rng), E::Fr::rand(rng) ],
+        ];
+
+        // (2 x 1) Com2 matrix
+        let x_rand_lin_b = vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(&self.b_consts, &crs)).left_mul(&x_rand_trans, is_parallel);
+
+        // (2 x n) field matrix
+        let x_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel);
+        // (2 x 1) Com2 matrix
+        let x_rand_stmt_lin_y = vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(&scalar_y_vars, &crs)).left_mul(&x_rand_stmt, is_parallel);
+
+        // (2 x 1) field matrix
+        let pf_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel).right_mul(&scalar_y_coms.rand, is_parallel).add(&pf_rand.transpose().neg());
+        // (2 x 1) Com2 matrix
+        let v1: Matrix<Com2<E>> = vec![vec![crs.v[0]]];
+        let pf_rand_stmt_com2 = v1.left_mul(&pf_rand_stmt, is_parallel);
+
+        let pi = col_vec_to_vec(&x_rand_lin_b.add(&x_rand_stmt_lin_y).add(&pf_rand_stmt_com2));
+        assert_eq!(pi.len(), 2);
+
+        // (1 x 1) Com1 matrix
+        let y_rand_lin_a = vec_to_col_vec(&Com1::<E>::batch_linear_map(&self.a_consts)).left_mul(&y_rand_trans, is_parallel);
+
+        // (1 x m) field matrix
+        let y_rand_stmt = y_rand_trans.right_mul(&self.gamma.transpose(), is_parallel);
+        // (1 x 1) Com1 matrix
+        let y_rand_stmt_lin_x = vec_to_col_vec(&Com1::<E>::batch_linear_map(&x_vars)).left_mul(&y_rand_stmt, is_parallel);
+
+        // (1 x 1) Com1 matrix
+        let pf_rand_com1 = vec_to_col_vec(&crs.u).left_mul(&pf_rand, is_parallel);
+
+        let theta = col_vec_to_vec(&y_rand_lin_a.add(&y_rand_stmt_lin_x).add(&pf_rand_com1));
+        assert_eq!(theta.len(), 1);
+
+        EquProof::<E> {
+            pi,
+            theta,
+            equ_type: self.get_type()
+        }
+    }
+
+    fn verify(&self, proof: &EquProof<E>, x_coms: &Commit1<E>, scalar_y_coms: &Commit2<E>, crs: &CRS<E>) -> bool {
+
+        let is_parallel = true;
+
+        let lin_a_com_y = ComT::<E>::pairing_sum(&Com1::<E>::batch_linear_map(&self.a_consts), &scalar_y_coms.coms);
+
+        let com_x_lin_b = ComT::<E>::pairing_sum(&x_coms.coms, &Com2::<E>::batch_scalar_linear_map(&self.b_consts, &crs));
+
+        let stmt_com_y: Matrix<Com2<E>> = vec_to_col_vec(&scalar_y_coms.coms).left_mul(&self.gamma, is_parallel);
+        let com_x_stmt_com_y = ComT::<E>::pairing_sum(&x_coms.coms, &col_vec_to_vec(&stmt_com_y));
+
+        let lin_t = ComT::<E>::linear_map_MSMEG1(&self.target, &crs);
+
+        let com1_pf2 = ComT::<E>::pairing_sum(&crs.u, &proof.pi);
+
+        let pf1_com2 = ComT::<E>::pairing(proof.theta[0].clone(), crs.v[0].clone());
+
+        let lhs: ComT<E> = lin_a_com_y + com_x_lin_b + com_x_stmt_com_y;
+        let rhs: ComT<E> = lin_t + com1_pf2 + pf1_com2;
+
+        lhs == rhs
+    }
+}
+
+/*
 /// A multi-scalar multiplication equation in [`G2`](ark_ec::PairingEngine::G2Affine), equipped with point-scalar multiplication as pairing.
 ///
 /// For example, the equation `w * N + (u * V)^5 = t_2` can be expressed by the following

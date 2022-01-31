@@ -131,10 +131,10 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     fn linear_map_PPE(z: &E::Fqk) -> Self;
     /// The linear map from G1 to BT for multi-scalar multiplication equations.
     #[allow(non_snake_case)]
-    fn linear_map_MSG1(z: &E::G1Affine, key: &CRS<E>) -> Self;
+    fn linear_map_MSMEG1(z: &E::G1Affine, key: &CRS<E>) -> Self;
     /// The linear map from G2 to BT for multi-scalar multiplication equations.
     #[allow(non_snake_case)]
-    fn linear_map_MSG2(z: &E::G2Affine, key: &CRS<E>) -> Self;
+    fn linear_map_MSMEG2(z: &E::G2Affine, key: &CRS<E>) -> Self;
 }
 
 // SXDH instantiation's bilinear group for commitments
@@ -600,12 +600,12 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     }
 
     #[inline]
-    fn linear_map_MSG1(z: &E::G1Affine, key: &CRS<E>) -> Self {
+    fn linear_map_MSMEG1(z: &E::G1Affine, key: &CRS<E>) -> Self {
         Self::pairing(Com1::<E>::linear_map(z), Com2::<E>::scalar_linear_map(&E::Fr::one(), key))
     }
 
     #[inline]
-    fn linear_map_MSG2(z: &E::G2Affine, key: &CRS<E>) -> Self {
+    fn linear_map_MSMEG2(z: &E::G2Affine, key: &CRS<E>) -> Self {
         Self::pairing(Com1::<E>::scalar_linear_map(&E::Fr::one(), key), Com2::<E>::linear_map(z))
     }
 }
@@ -1646,7 +1646,7 @@ mod tests {
             let at = a1.mul(a2).into_affine();
             let b1 = Com1::<F>::linear_map(&a1);
             let b2 = Com2::<F>::scalar_linear_map(&a2, &key);
-            let bt = ComT::<F>::linear_map_MSG1(&at, &key);
+            let bt = ComT::<F>::linear_map_MSMEG1(&at, &key);
 
             assert_eq!(b1.0, G1Affine::zero());
             assert_eq!(b1.1, a1);
@@ -1670,7 +1670,7 @@ mod tests {
             let at = a2.mul(a1).into_affine();
             let b1 = Com1::<F>::scalar_linear_map(&a1, &key);
             let b2 = Com2::<F>::linear_map(&a2);
-            let bt = ComT::<F>::linear_map_MSG2(&at, &key);
+            let bt = ComT::<F>::linear_map_MSMEG2(&at, &key);
 
             assert_eq!(b1.0, key.u[1].0.mul(a1));
             assert_eq!(b1.1, (key.u[1].1 + key.g1_gen).mul(a1));
