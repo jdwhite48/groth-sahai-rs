@@ -1,5 +1,5 @@
 [package]
-name = "groth_sahai"
+name = "groth-sahai"
 version = "0.1.0"
 authors = ["Jacob White <white570@purdue.edu>"]
 edition = "2018"
@@ -10,8 +10,6 @@ readme = "README.md"
 keywords = ["cryptography", "NIZK", "zero-knowledge", "elliptic curve", "bilinear"]
 categories = ["cryptography"]
 include = ["Cargo.toml", "src", "README.md", "LICENSE-APACHE", "LICENSE-MIT"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 ark-bls12-381 = { version = "^0.3.0" }

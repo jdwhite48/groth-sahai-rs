@@ -16,9 +16,11 @@ use ark_std::{
 };
 
 use groth_sahai::{
-    B1, Com1, Mat, Matrix, CRS,
-    batch_commit_G1, batch_commit_G2, batch_commit_scalar_to_B1, batch_commit_scalar_to_B2, Commit1, Commit2,
     prover::*,
+    statement::*,
+    verifier::*,
+    B1, Com1, Mat, Matrix,
+    CRS, AbstractCrs
 };
 
 type G1Projective = <F as PairingEngine>::G1Projective;
