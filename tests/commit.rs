@@ -9,7 +9,7 @@ mod SXDH_commit_tests {
     use ark_ff::UniformRand;
     use ark_std::test_rng;
 
-    use groth_sahai::CRS;
+    use groth_sahai::{CRS, AbstractCrs};
     use groth_sahai::data_structures::*;
 //    use groth_sahai::commit::*;
 

@@ -10,7 +10,7 @@ use ark_std::{
 };
 
 use crate::data_structures::*;
-use crate::generator::CRS;
+use crate::generator::*;
 
 pub trait Commit:
     Eq

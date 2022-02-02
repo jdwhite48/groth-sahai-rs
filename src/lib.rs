@@ -5,5 +5,5 @@ pub mod prover;
 pub mod verifier;
 
 pub use crate::data_structures::*;
-pub use crate::generator::CRS;
+pub use crate::generator::*;
 pub use crate::statement::EquType;

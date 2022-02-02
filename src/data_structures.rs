@@ -34,7 +34,7 @@ use ark_std::{
 };
 use rayon::prelude::*;
 
-use crate::generator::CRS;
+use crate::generator::*;
 
 pub trait Mat<Elem: Clone>:
     Eq

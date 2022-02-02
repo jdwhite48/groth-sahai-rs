@@ -152,7 +152,7 @@ mod tests {
     use ark_std::test_rng;
 
     use super::*;
-    use crate::CRS;
+    use crate::generator::*;
 
     type Fr = <F as PairingEngine>::Fr;
     type Fqk = <F as PairingEngine>::Fqk;

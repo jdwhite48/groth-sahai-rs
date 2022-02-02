@@ -8,7 +8,7 @@
 use ark_ec::PairingEngine;
 
 use crate::data_structures::*;
-use crate::generator::CRS;
+use crate::generator::*;
 use crate::prover::commit::*;
 use crate::prover::EquProof;
 use crate::statement::*;
