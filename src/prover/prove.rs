@@ -37,7 +37,8 @@ pub trait Provable<E: PairingEngine, A1, A2, AT> {
 pub struct EquProof<E: PairingEngine> {
     pub pi: Vec<Com2<E>>,
     pub theta: Vec<Com1<E>>,
-    pub equ_type: EquType
+    pub equ_type: EquType,
+    rand: Matrix<E::Fr>
 }
 
 /// A collection of proofs for Groth-Sahai compatible bilinear equations.
@@ -106,7 +107,8 @@ impl<E: PairingEngine> Provable<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
         EquProof::<E> {
             pi,
             theta,
-            equ_type: EquType::PairingProduct
+            equ_type: EquType::PairingProduct,
+            rand: pf_rand
         }
     }
 }
@@ -174,7 +176,8 @@ impl<E: PairingEngine> Provable<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E
         EquProof::<E> {
             pi,
             theta,
-            equ_type: EquType::MultiScalarG1
+            equ_type: EquType::MultiScalarG1,
+            rand: pf_rand
         }
     }
 }
@@ -243,7 +246,8 @@ impl<E: PairingEngine> Provable<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E
         EquProof::<E> {
             pi,
             theta,
-            equ_type: EquType::MultiScalarG2
+            equ_type: EquType::MultiScalarG2,
+            rand: pf_rand
         }
     }
 }
@@ -309,7 +313,8 @@ impl<E: PairingEngine> Provable<E, E::Fr, E::Fr, E::Fr> for QuadEqu<E> {
         EquProof::<E> {
             pi,
             theta,
-            equ_type: EquType::Quadratic
+            equ_type: EquType::Quadratic,
+            rand: pf_rand
         }
     }
 }
