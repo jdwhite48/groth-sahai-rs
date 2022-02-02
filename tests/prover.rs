@@ -65,7 +65,7 @@ mod SXDH_prover_tests {
         let mut rng = test_rng();
         let crs = CRS::<F>::generate_crs(&mut rng);
 
-        // An equation of the form c_2 * X_2 + y_1 * c_1 + (y_1 * X_1)^5 = t where t = c_2 * (3 g1) + 4 * c_1 + (4 * (2 g1))*5 is satisfied
+        // An equation of the form c_2 * X_2 + y_1 * c_1 + (y_1 * X_1)*5 = t where t = c_2 * (3 g1) + 4 * c_1 + (4 * (2 g1))*5 is satisfied
         // by variables X_1, X_2 in G1 and y_1 in Fr, and constants c_1 in G1 and c_2 in Fr
 
         // X = [ X_1, X_2 ] = [2 g1, 3 g1]
@@ -84,7 +84,7 @@ mod SXDH_prover_tests {
         let a_consts: Vec<G1Affine> = vec![ crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine() ];
         // B = [ 0, c_2 ] (i.e. only c_2 * X_2 term in equation)
         let b_consts: Vec<Fr> = vec![ Fr::zero(), Fr::rand(&mut rng) ];
-        // Gamma = [ 5, 0 ] (i.e. only (y_1 * X_1)^5 term)
+        // Gamma = [ 5, 0 ] (i.e. only (y_1 * X_1)*5 term)
         let gamma: Matrix<Fr> = vec![vec![field_new!(Fr, "5")], vec![Fr::zero()]];
         // Target -> all together
         let target: G1Affine = (xvars[1].mul(b_consts[1]) + a_consts[0].mul(scalar_yvars[0]) + xvars[0].mul(scalar_yvars[0] * gamma[0][0])).into_affine();
@@ -102,15 +102,15 @@ mod SXDH_prover_tests {
         let mut rng = test_rng();
         let crs = CRS::<F>::generate_crs(&mut rng);
 
-        // An equation of the form x_2 * c_2 + c_1 * Y_1 + (x_1 * Y_1)^5 = t where t = 3 * c_2 + c_1 * (4 g2) + (2 * (4 g2))*5 is satisfied
+        // An equation of the form x_2 * c_2 + c_1 * Y_1 + (x_1 * Y_1)*5 = t where t = 3 * c_2 + c_1 * (4 g2) + (2 * (4 g2))*5 is satisfied
         // by variables x_1, x_2 in Fr and Y_1 in G2, and constants c_1 in Fr and c_2 in G2
 
-        // X = [ x_1, x_2 ] = [2, 3]
+        // x = [ x_1, x_2 ] = [2, 3]
         let scalar_xvars: Vec<Fr> = vec![
             field_new!(Fr, "2"),
             field_new!(Fr, "3")
         ];
-        // y = [ y_1 ] = [ 4 g2 ]
+        // Y = [ y_1 ] = [ 4 g2 ]
         let yvars: Vec<G2Affine> = vec![
             crs.g2_gen.mul(field_new!(Fr, "4")).into_affine()
         ];
@@ -121,7 +121,7 @@ mod SXDH_prover_tests {
         let a_consts: Vec<Fr> = vec![ Fr::rand(&mut rng) ];
         // B = [ 0, c_2 ] (i.e. only x_2 * c_2 term in equation)
         let b_consts: Vec<G2Affine> = vec![ G2Affine::zero(), crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine() ];
-        // Gamma = [ 5, 0 ] (i.e. only (x_1 * Y_1)^5 term)
+        // Gamma = [ 5, 0 ] (i.e. only (x_1 * Y_1)*5 term)
         let gamma: Matrix<Fr> = vec![vec![field_new!(Fr, "5")], vec![Fr::zero()]];
         // Target -> all together
         let target: G2Affine = (b_consts[1].mul(scalar_xvars[1]) + yvars[0].mul(a_consts[0]) + yvars[0].mul(scalar_xvars[0] * gamma[0][0])).into_affine();
@@ -131,5 +131,42 @@ mod SXDH_prover_tests {
 
         let proof: EquProof<F> = equ.prove(&scalar_xvars, &yvars, &scalar_xcoms, &ycoms, &crs, &mut rng);
         assert!(equ.verify(&proof, &scalar_xcoms, &ycoms, &crs));
+    }
+
+    #[test]
+    fn quadratic_equation_verifies() {
+
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        // An equation of the form c_2 * x_2 + c_1 * y_1 + (x_1 * y_1)*5 = t where t = c_2 * 3 + c_1 * 4 + (2 * 4)*5 is satisfied
+        // by variables x_1, x_2 and y_1 in Fr, and constants c_1 and c_2 in Fr
+
+        // x = [ x_1, x_2 ] = [2, 3]
+        let scalar_xvars: Vec<Fr> = vec![
+            field_new!(Fr, "2"),
+            field_new!(Fr, "3")
+        ];
+        // y = [ y_1 ] = [ 4 ]
+        let scalar_yvars: Vec<Fr> = vec![
+            field_new!(Fr, "4")
+        ];
+        let scalar_xcoms: Commit1<F> = batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
+        let scalar_ycoms: Commit2<F> = batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng);
+
+        // A = [ c_1 ] (i.e. c_1 * y_1 term in equation)
+        let a_consts: Vec<Fr> = vec![ Fr::rand(&mut rng) ];
+        // B = [ 0, c_2 ] (i.e. only c_2 * x2 term in equation)
+        let b_consts: Vec<Fr> = vec![ Fr::zero(), Fr::rand(&mut rng) ];
+        // Gamma = [ 5, 0 ] (i.e. only (x_1 * y_1)*5 term)
+        let gamma: Matrix<Fr> = vec![vec![field_new!(Fr, "5")], vec![Fr::zero()]];
+        // Target -> all together
+        let target: Fr = b_consts[1] * scalar_xvars[1] + scalar_yvars[0] * a_consts[0] + scalar_yvars[0] * scalar_xvars[0] * gamma[0][0];
+        let equ: QuadEqu<F> = QuadEqu::<F> {
+            a_consts, b_consts, gamma, target
+        };
+
+        let proof: EquProof<F> = equ.prove(&scalar_xvars, &scalar_yvars, &scalar_xcoms, &scalar_ycoms, &crs, &mut rng);
+        assert!(equ.verify(&proof, &scalar_xcoms, &scalar_ycoms, &crs));
     }
 }

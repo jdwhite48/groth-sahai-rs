@@ -68,4 +68,22 @@ mod SXDH_commit_tests {
 
         assert_eq!(bt_lin_bilin, bt_bilin_lin);
     }
+
+    #[test]
+    fn QuadEqu_linear_bilinear_map_commutativity() {
+
+        let mut rng = test_rng();
+        let key = CRS::<F>::generate_crs(&mut rng);
+
+        let a1 = Fr::rand(&mut rng);
+        let a2 = Fr::rand(&mut rng);
+        let at = a1 * a2;
+        let b1 = Com1::<F>::scalar_linear_map(&a1, &key);
+        let b2 = Com2::<F>::scalar_linear_map(&a2, &key);
+
+        let bt_lin_bilin = ComT::<F>::pairing(b1.clone(), b2.clone());
+        let bt_bilin_lin = ComT::<F>::linear_map_quad(&at, &key);
+
+        assert_eq!(bt_lin_bilin, bt_bilin_lin);
+    }
 }

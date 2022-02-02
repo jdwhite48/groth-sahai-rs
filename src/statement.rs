@@ -18,7 +18,7 @@
 //!     with [point-scalar multiplication](ark_ec::AffineCurve::mul) as the equipped pairing.
 //! 3) **Multi-scalar mult. equation in G2** ([`MSMEG2`](self::MSMEG2)):&emsp;`(Fr, G2, G2)`
 //!     with [point-scalar multiplication](ark_ec::AffineCurve::mul) as the equipped pairing.
-//! 4) **Quadratic equation** ([`Quad`](self::Quad)):&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;`(Fr, Fr, Fr)`
+//! 4) **Quadratic equation** ([`QuadEqu`](self::QuadEqu)):&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;`(Fr, Fr, Fr)`
 //!     with [scalar](ark_ec::PairingEngine::Fr) multiplication as the equipped pairing.
 //!
 //! The Groth-Sahai proof system expects that **each** equation is defined with respect to the list of variables
@@ -122,21 +122,25 @@ impl<E: PairingEngine> Equation<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E
     }
 }
 
-/*
+
 /// A quadratic equation in the [scalar field](ark_ec::PairingEngine::Fr), equipped with field multiplication as pairing.
 ///
 /// For example, the equation `w * n + (u * v)^5 = t_p` can be expressed by the following
 /// (private) witness variables `X = [u, w]`, `Y = [v]`, (public) constants `A = [0]`, `B = [0, n]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_p` in `Fr`.
 pub struct QuadEqu<E: PairingEngine> {
-    a_consts: Vec<E::Fr>,
-    b_consts: Vec<E::Fr>,
-    gamma: Matrix<E::Fr>,
-    target: E::Fr
+    pub a_consts: Vec<E::Fr>,
+    pub b_consts: Vec<E::Fr>,
+    pub gamma: Matrix<E::Fr>,
+    pub target: E::Fr
 }
 impl<E: PairingEngine> Equ for QuadEqu<E> {}
-impl<E: PairingEngine> Equation<E, E::Fr, E::Fr, E::Fr> for QuadEqu<E> {}
-*/
+impl<E: PairingEngine> Equation<E, E::Fr, E::Fr, E::Fr> for QuadEqu<E> {
+    #[inline(always)]
+    fn get_type(&self) -> EquType {
+        EquType::Quadratic
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -183,5 +187,36 @@ mod tests {
         };
 
         assert_eq!(equ.get_type(), EquType::MultiScalarG1);
+    }
+
+    #[test]
+    fn test_MSMEG2_equation_type() {
+
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let equ: MSMEG2<F> = MSMEG2::<F> {
+            a_consts: vec![Fr::rand(&mut rng)],
+            b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            gamma: vec![vec![Fr::rand(&mut rng)]],
+            target: crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()
+        };
+
+        assert_eq!(equ.get_type(), EquType::MultiScalarG2);
+    }
+
+    #[test]
+    fn test_quadratic_equation_type() {
+
+        let mut rng = test_rng();
+
+        let equ: QuadEqu<F> = QuadEqu::<F> {
+            a_consts: vec![Fr::rand(&mut rng)],
+            b_consts: vec![Fr::rand(&mut rng)],
+            gamma: vec![vec![Fr::rand(&mut rng)]],
+            target: Fr::rand(&mut rng)
+        };
+
+        assert_eq!(equ.get_type(), EquType::Quadratic);
     }
 }

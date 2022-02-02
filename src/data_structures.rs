@@ -126,6 +126,8 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     /// The linear map from G2 to BT for multi-scalar multiplication equations.
     #[allow(non_snake_case)]
     fn linear_map_MSMEG2(z: &E::G2Affine, key: &CRS<E>) -> Self;
+    /// The linear map from Fr to BT for quadratic equations.
+    fn linear_map_quad(z: &E::Fr, key: &CRS<E>) -> Self;
 }
 
 // SXDH instantiation's bilinear group for commitments
@@ -590,6 +592,11 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
     fn linear_map_MSMEG2(z: &E::G2Affine, key: &CRS<E>) -> Self {
         Self::pairing(Com1::<E>::scalar_linear_map(&E::Fr::one(), key), Com2::<E>::linear_map(z))
+    }
+
+    #[inline]
+    fn linear_map_quad(z: &E::Fr, key: &CRS<E>) -> Self {
+        Self::pairing(Com1::<E>::scalar_linear_map(&E::Fr::one(), key), Com2::<E>::scalar_linear_map(&E::Fr::one(), key).scalar_mul(z))
     }
 }
 
@@ -1656,6 +1663,35 @@ mod tests {
             assert_eq!(bt.1, F::pairing(key.u[1].0.clone(), at.clone()));
             assert_eq!(bt.2, Fqk::one());
             assert_eq!(bt.3, F::pairing(key.u[1].1.clone() + key.g1_gen.clone(), at.clone()));
+        }
+
+        // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
+        #[test]
+        fn test_QuadEqu_linear_maps() {
+
+            let mut rng = test_rng();
+            let key = CRS::<F>::generate_crs(&mut rng);
+
+            let a1 = Fr::rand(&mut rng);
+            let a2 = Fr::rand(&mut rng);
+            let at = a1 * a2;
+            let b1 = Com1::<F>::scalar_linear_map(&a1, &key);
+            let b2 = Com2::<F>::scalar_linear_map(&a2, &key);
+            let bt = ComT::<F>::linear_map_quad(&at, &key);
+            let W1 = Com1::<F>(
+                key.u[1].0,
+                key.u[1].1 + key.g1_gen
+            );
+            let W2 = Com2::<F>(
+                key.v[1].0,
+                key.v[1].1 + key.g2_gen
+            );
+            assert_eq!(b1.0, W1.0.mul(a1));
+            assert_eq!(b1.1, W1.1.mul(a1));
+            assert_eq!(b2.0, W2.0.mul(a2));
+            assert_eq!(b2.1, W2.1.mul(a2));
+            assert_eq!(bt, ComT::<F>::pairing(W1.scalar_mul(&a1), W2.scalar_mul(&a2)));
+            assert_eq!(bt, ComT::<F>::pairing(W1, W2.scalar_mul(&at)));
         }
     }
 
