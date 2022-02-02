@@ -9,7 +9,6 @@ mod SXDH_prover_tests {
     use ark_ff::{UniformRand, Zero, field_new};
     use ark_std::test_rng;
 
-    use groth_sahai::commit::*;
     use groth_sahai::CRS;
     use groth_sahai::data_structures::*;
     use groth_sahai::prover::*;

@@ -18,10 +18,10 @@ use ark_std::{
     rand::{CryptoRng, Rng}
 };
 
-use crate::commit::*;
 use crate::data_structures::*;
 use crate::generator::CRS;
 use crate::statement::*;
+use super::commit::*;
 
 
 /// A collection  of attributes containing prover functionality for an [`Equation`](crate::statement::Equation).

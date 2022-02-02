@@ -12,7 +12,6 @@ use ark_std::{
 use crate::data_structures::*;
 use crate::generator::CRS;
 
-
 pub trait Commit:
     Eq
     + Debug
@@ -25,13 +24,13 @@ pub trait Commit:
 #[derive(Debug)]
 pub struct Commit1<E: PairingEngine> {
     pub coms: Vec<Com1<E>>,
-    pub rand: Matrix<E::Fr>
+    pub(super) rand: Matrix<E::Fr>
 }
 /// Contains both the commitment's values (as [`Com2`](crate::data_structures::Com2)) and its randomness.
 #[derive(Debug)]
 pub struct Commit2<E: PairingEngine> {
     pub coms: Vec<Com2<E>>,
-    pub rand: Matrix<E::Fr>
+    pub(super) rand: Matrix<E::Fr>
 }
 
 macro_rules! impl_com {

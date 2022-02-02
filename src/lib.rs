@@ -1,7 +1,6 @@
 pub mod data_structures;
 pub mod generator;
 pub mod statement;
-pub mod commit;
 pub mod prover;
 pub mod verifier;
 
