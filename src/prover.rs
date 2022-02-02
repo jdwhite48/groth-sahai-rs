@@ -53,10 +53,12 @@ impl<E: PairingEngine> Provable<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
         // x's commit randomness (i.e. R) is a (m x 2) matrix
         assert_eq!(x_vars.len(), x_coms.rand.len());
         assert_eq!(self.gamma.len(), x_coms.rand.len());
+        assert_eq!(x_coms.rand[0].len(), 2);
         let _m = x_vars.len();
         // y's commit randomness (i.e. S) is a (n x 2) matrix
         assert_eq!(y_vars.len(), y_coms.rand.len());
         assert_eq!(self.gamma[0].len(), y_coms.rand.len());
+        assert_eq!(y_coms.rand[0].len(), 2);
         let _n = y_vars.len();
 
         let is_parallel = true;
@@ -119,17 +121,19 @@ impl<E: PairingEngine> Provable<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E
         // x's commit randomness (i.e. R) is a (m x 2) matrix
         assert_eq!(x_vars.len(), x_coms.rand.len());
         assert_eq!(self.gamma.len(), x_coms.rand.len());
+        assert_eq!(x_coms.rand[0].len(), 2);
         let _m = x_vars.len();
         // scalar y's commit randomness (i.e. s) is a (n' x 1) matrix (i.e. column vector)
         assert_eq!(scalar_y_vars.len(), scalar_y_coms.rand.len());
         assert_eq!(self.gamma[0].len(), scalar_y_coms.rand.len());
+        assert_eq!(scalar_y_coms.rand[0].len(), 1);
         let _n_prime = scalar_y_vars.len();
 
         let is_parallel = true;
 
         // (2 x m) field matrix R^T, in GS parlance
         let x_rand_trans = x_coms.rand.transpose();
-        // (2 x n') field matrix s^T, in GS parlance
+        // (1 x n') field matrix s^T, in GS parlance
         let y_rand_trans = scalar_y_coms.rand.transpose();
         // (1 x 2) field matrix T, in GS parlance
         let pf_rand: Matrix<E::Fr> = vec![
@@ -174,6 +178,76 @@ impl<E: PairingEngine> Provable<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E
         }
     }
 }
+
+impl<E: PairingEngine> Provable<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E> {
+
+    fn prove<CR>(&self, scalar_x_vars: &Vec<E::Fr>, y_vars: &Vec<E::G2Affine>, scalar_x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E> 
+    where
+        CR: Rng + CryptoRng
+    {
+        // Gamma is an (m' x n) matrix with m' x variables and n y variables
+        // x's commit randomness (i.e. r) is a (m' x 1) matrix (i.e. a column vector)
+        assert_eq!(scalar_x_vars.len(), scalar_x_coms.rand.len());
+        assert_eq!(self.gamma.len(), scalar_x_coms.rand.len());
+        assert_eq!(scalar_x_coms.rand[0].len(), 1);
+        let _m_prime = scalar_x_vars.len();
+        // y's commit randomness (i.e. S) is a (n x 2) matrix
+        assert_eq!(y_vars.len(), y_coms.rand.len());
+        assert_eq!(self.gamma[0].len(), y_coms.rand.len());
+        assert_eq!(y_coms.rand[0].len(), 2);
+        let _n = y_vars.len();
+
+        let is_parallel = true;
+
+        // (1 x m') field matrix r^T, in GS parlance
+        let x_rand_trans = scalar_x_coms.rand.transpose();
+        // (2 x n) field matrix S^T, in GS parlance
+        let y_rand_trans = y_coms.rand.transpose();
+        // (2 x 1) field matrix T, in GS parlance
+        let pf_rand: Matrix<E::Fr> = vec![
+            vec![ E::Fr::rand(rng) ],
+            vec![ E::Fr::rand(rng) ]
+        ];
+
+        // (1 x 1) Com2 matrix
+        let x_rand_lin_b = vec_to_col_vec(&Com2::<E>::batch_linear_map(&self.b_consts)).left_mul(&x_rand_trans, is_parallel);
+
+        // (1 x n) field matrix
+        let x_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel);
+        // (1 x 1) Com2 matrix
+        let x_rand_stmt_lin_y = vec_to_col_vec(&Com2::<E>::batch_linear_map(&y_vars)).left_mul(&x_rand_stmt, is_parallel);
+
+        // (1 x 2) field matrix
+        let pf_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel).right_mul(&y_coms.rand, is_parallel).add(&pf_rand.transpose().neg());
+        // (1 x 1) Com2 matrix
+        let pf_rand_stmt_com2 = vec_to_col_vec(&crs.v).left_mul(&pf_rand_stmt, is_parallel);
+
+        let pi = col_vec_to_vec(&x_rand_lin_b.add(&x_rand_stmt_lin_y).add(&pf_rand_stmt_com2));
+        assert_eq!(pi.len(), 1);
+
+        // (2 x 1) Com1 matrix
+        let y_rand_lin_a = vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(&self.a_consts, &crs)).left_mul(&y_rand_trans, is_parallel);
+
+        // (2 x m') field matrix
+        let y_rand_stmt = y_rand_trans.right_mul(&self.gamma.transpose(), is_parallel);
+        // (2 x 1) Com1 matrix
+        let y_rand_stmt_lin_x = vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(&scalar_x_vars, &crs)).left_mul(&y_rand_stmt, is_parallel);
+
+        // (2 x 1) Com1 matrix
+        let u1: Matrix<Com1<E>> = vec![vec![crs.u[0]]];
+        let pf_rand_com1 = u1.left_mul(&pf_rand, is_parallel);
+
+        let theta = col_vec_to_vec(&y_rand_lin_a.add(&y_rand_stmt_lin_x).add(&pf_rand_com1));
+        assert_eq!(theta.len(), 2);
+
+        EquProof::<E> {
+            pi,
+            theta,
+            equ_type: EquType::MultiScalarG2
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -243,6 +317,36 @@ mod tests {
         let proof: EquProof<F> = equ.prove(&xvars, &scalar_yvars, &xcoms, &scalar_ycoms, &crs, &mut rng);
 
         assert_eq!(proof.equ_type, EquType::MultiScalarG1);
+    }
+
+    #[test]
+    fn test_MSMEG2_proof_type() {
+
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let scalar_xvars: Vec<Fr> = vec![
+            Fr::rand(&mut rng),
+            Fr::rand(&mut rng)
+        ];
+        let yvars: Vec<G2Affine> = vec![
+            crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()
+        ];
+        let scalar_xcoms: Commit1<F> = batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
+        let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
+
+        let equ: MSMEG2<F> = MSMEG2::<F> {
+            a_consts: vec![Fr::rand(&mut rng)],
+            b_consts: vec![
+                crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
+                crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()
+            ],
+            gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
+            target: crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()
+        };
+        let proof: EquProof<F> = equ.prove(&scalar_xvars, &yvars, &scalar_xcoms, &ycoms, &crs, &mut rng);
+
+        assert_eq!(proof.equ_type, EquType::MultiScalarG2);
     }
 }
 

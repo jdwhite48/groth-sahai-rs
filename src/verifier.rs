@@ -72,6 +72,32 @@ impl<E: PairingEngine> Verifiable<E> for MSMEG1<E> {
     }
 }
 
+impl<E: PairingEngine> Verifiable<E> for MSMEG2<E> {
+
+    fn verify(&self, proof: &EquProof<E>, scalar_x_coms: &Commit1<E>, y_coms: &Commit2<E>, crs: &CRS<E>) -> bool {
+
+        let is_parallel = true;
+
+        let lin_a_com_y = ComT::<E>::pairing_sum(&Com1::<E>::batch_scalar_linear_map(&self.a_consts, &crs), &y_coms.coms);
+
+        let com_x_lin_b = ComT::<E>::pairing_sum(&scalar_x_coms.coms, &Com2::<E>::batch_linear_map(&self.b_consts));
+
+        let stmt_com_y: Matrix<Com2<E>> = vec_to_col_vec(&y_coms.coms).left_mul(&self.gamma, is_parallel);
+        let com_x_stmt_com_y = ComT::<E>::pairing_sum(&scalar_x_coms.coms, &col_vec_to_vec(&stmt_com_y));
+
+        let lin_t = ComT::<E>::linear_map_MSMEG2(&self.target, &crs);
+
+        let com1_pf2 = ComT::<E>::pairing(crs.u[0].clone(), proof.pi[0].clone());
+
+        let pf1_com2 = ComT::<E>::pairing_sum(&proof.theta, &crs.v);
+
+        let lhs: ComT<E> = lin_a_com_y + com_x_lin_b + com_x_stmt_com_y;
+        let rhs: ComT<E> = lin_t + com1_pf2 + pf1_com2;
+
+        lhs == rhs
+    }
+}
+
 /*
  * NOTE:
  *

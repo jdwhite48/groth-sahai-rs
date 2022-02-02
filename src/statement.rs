@@ -103,21 +103,26 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E
     }
 }
 
-/*
 /// A multi-scalar multiplication equation in [`G2`](ark_ec::PairingEngine::G2Affine), equipped with point-scalar multiplication as pairing.
 ///
 /// For example, the equation `w * N + (u * V)^5 = t_2` can be expressed by the following
 /// (private) witness variables `X = [u, w]`, `Y = [V]`, (public) constants `A = [0]`, `B = [0, N]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_2` in `G2`.
 pub struct MSMEG2<E: PairingEngine> {
-    a_consts: Vec<E::Fr>,
-    b_consts: Vec<E::G2Affine>,
-    gamma: Matrix<E::Fr>,
-    target: E::G2Affine
+    pub a_consts: Vec<E::Fr>,
+    pub b_consts: Vec<E::G2Affine>,
+    pub gamma: Matrix<E::Fr>,
+    pub target: E::G2Affine
 }
 impl<E: PairingEngine> Equ for MSMEG2<E> {}
-impl<E: PairingEngine> Equation<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E> {}
+impl<E: PairingEngine> Equation<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E> {
+    #[inline(always)]
+    fn get_type(&self) -> EquType {
+        EquType::MultiScalarG2
+    }
+}
 
+/*
 /// A quadratic equation in the [scalar field](ark_ec::PairingEngine::Fr), equipped with field multiplication as pairing.
 ///
 /// For example, the equation `w * n + (u * v)^5 = t_p` can be expressed by the following
