@@ -34,6 +34,7 @@ pub trait Provable<E: PairingEngine, A1, A2, AT> {
 }
 
 /// A witness-indistinguishable proof for a single [`Equation`](crate::statement::Equation).
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EquProof<E: PairingEngine> {
     pub pi: Vec<Com2<E>>,
     pub theta: Vec<Com1<E>>,

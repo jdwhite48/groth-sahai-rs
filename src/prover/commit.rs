@@ -21,13 +21,13 @@ pub trait Commit:
 }
 
 /// Contains both the commitment's values (as [`Com1`](crate::data_structures::Com1)) and its randomness.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Commit1<E: PairingEngine> {
     pub coms: Vec<Com1<E>>,
     pub(super) rand: Matrix<E::Fr>
 }
 /// Contains both the commitment's values (as [`Com2`](crate::data_structures::Com2)) and its randomness.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Commit2<E: PairingEngine> {
     pub coms: Vec<Com2<E>>,
     pub(super) rand: Matrix<E::Fr>

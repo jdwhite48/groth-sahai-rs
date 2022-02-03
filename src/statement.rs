@@ -38,7 +38,7 @@ use crate::prover::Provable;
 use crate::verifier::Verifiable;
 
 /// Groth-Sahai statement (i.e. bilinear equation) types.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EquType {
     PairingProduct,
     MultiScalarG1,
@@ -68,6 +68,7 @@ pub type Statement = Vec<dyn Equ>;
 /// For example, the equation `e(W, N) * e(U, V)^5 = t_T` can be expressed by the following
 /// (private) witness variables `X = [U, W]`, `Y = [V]`, (public) constants `A = [0]`, `B = [0, N]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_T` in `GT`.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PPE<E: PairingEngine> {
     pub a_consts: Vec<E::G1Affine>,
     pub b_consts: Vec<E::G2Affine>,
@@ -88,6 +89,7 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
 /// For example, the equation `n * W + (v * U)^5 = t_1` can be expressed by the following
 /// (private) witness variables `X = [U, W]`, `Y = [v]`, (public) constants `A = [0]`, `B = [0, n]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_1` in `G1`.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MSMEG1<E: PairingEngine> {
     pub a_consts: Vec<E::G1Affine>,
     pub b_consts: Vec<E::Fr>,
@@ -108,6 +110,7 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E
 /// For example, the equation `w * N + (u * V)^5 = t_2` can be expressed by the following
 /// (private) witness variables `X = [u, w]`, `Y = [V]`, (public) constants `A = [0]`, `B = [0, N]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_2` in `G2`.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MSMEG2<E: PairingEngine> {
     pub a_consts: Vec<E::Fr>,
     pub b_consts: Vec<E::G2Affine>,
@@ -128,6 +131,7 @@ impl<E: PairingEngine> Equation<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E
 /// For example, the equation `w * n + (u * v)^5 = t_p` can be expressed by the following
 /// (private) witness variables `X = [u, w]`, `Y = [v]`, (public) constants `A = [0]`, `B = [0, n]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_p` in `Fr`.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuadEqu<E: PairingEngine> {
     pub a_consts: Vec<E::Fr>,
     pub b_consts: Vec<E::Fr>,
