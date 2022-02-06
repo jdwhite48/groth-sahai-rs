@@ -39,8 +39,6 @@ mod SXDH_prover_tests {
         let yvars: Vec<G2Affine> = vec![
             crs.g2_gen.mul(field_new!(Fr, "4")).into_affine()
         ];
-        let xcoms: Commit1<F> = batch_commit_G1(&xvars, &crs, &mut rng);
-        let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
 
         // A = [ c_1 ] (i.e. e(c_1, Y_1) term in equation)
         let a_consts: Vec<G1Affine> = vec![ crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine() ];
@@ -54,8 +52,8 @@ mod SXDH_prover_tests {
             a_consts, b_consts, gamma, target
         };
 
-        let proof: EquProof<F> = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
-        assert!(equ.verify(&proof, &xcoms, &ycoms, &crs));
+        let proof: CProof<F> = equ.commit_and_prove(&xvars, &yvars, &crs, &mut rng);
+        assert!(equ.verify(&proof, &crs));
     }
 
     #[test]
@@ -76,8 +74,6 @@ mod SXDH_prover_tests {
         let scalar_yvars: Vec<Fr> = vec![
             field_new!(Fr, "4")
         ];
-        let xcoms: Commit1<F> = batch_commit_G1(&xvars, &crs, &mut rng);
-        let scalar_ycoms: Commit2<F> = batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng);
 
         // A = [ c_1 ] (i.e. y_1 * c_1 term in equation)
         let a_consts: Vec<G1Affine> = vec![ crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine() ];
@@ -91,8 +87,8 @@ mod SXDH_prover_tests {
             a_consts, b_consts, gamma, target
         };
 
-        let proof: EquProof<F> = equ.prove(&xvars, &scalar_yvars, &xcoms, &scalar_ycoms, &crs, &mut rng);
-        assert!(equ.verify(&proof, &xcoms, &scalar_ycoms, &crs));
+        let proof: CProof<F> = equ.commit_and_prove(&xvars, &scalar_yvars, &crs, &mut rng);
+        assert!(equ.verify(&proof, &crs));
     }
 
     #[test]
@@ -113,8 +109,6 @@ mod SXDH_prover_tests {
         let yvars: Vec<G2Affine> = vec![
             crs.g2_gen.mul(field_new!(Fr, "4")).into_affine()
         ];
-        let scalar_xcoms: Commit1<F> = batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
-        let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
 
         // A = [ c_1 ] (i.e. c_1 * Y_1 term in equation)
         let a_consts: Vec<Fr> = vec![ Fr::rand(&mut rng) ];
@@ -128,8 +122,8 @@ mod SXDH_prover_tests {
             a_consts, b_consts, gamma, target
         };
 
-        let proof: EquProof<F> = equ.prove(&scalar_xvars, &yvars, &scalar_xcoms, &ycoms, &crs, &mut rng);
-        assert!(equ.verify(&proof, &scalar_xcoms, &ycoms, &crs));
+        let proof: CProof<F> = equ.commit_and_prove(&scalar_xvars, &yvars, &crs, &mut rng);
+        assert!(equ.verify(&proof, &crs));
     }
 
     #[test]
@@ -150,8 +144,6 @@ mod SXDH_prover_tests {
         let scalar_yvars: Vec<Fr> = vec![
             field_new!(Fr, "4")
         ];
-        let scalar_xcoms: Commit1<F> = batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
-        let scalar_ycoms: Commit2<F> = batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng);
 
         // A = [ c_1 ] (i.e. c_1 * y_1 term in equation)
         let a_consts: Vec<Fr> = vec![ Fr::rand(&mut rng) ];
@@ -165,7 +157,7 @@ mod SXDH_prover_tests {
             a_consts, b_consts, gamma, target
         };
 
-        let proof: EquProof<F> = equ.prove(&scalar_xvars, &scalar_yvars, &scalar_xcoms, &scalar_ycoms, &crs, &mut rng);
-        assert!(equ.verify(&proof, &scalar_xcoms, &scalar_ycoms, &crs));
+        let proof: CProof<F> = equ.commit_and_prove(&scalar_xvars, &scalar_yvars, &crs, &mut rng);
+        assert!(equ.verify(&proof, &crs));
     }
 }

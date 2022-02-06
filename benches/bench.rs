@@ -590,8 +590,6 @@ fn bench_small_PPE_verify(c: &mut Criterion) {
     let yvars: Vec<G2Affine> = vec![
         crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()
     ];
-    let xcoms: Commit1<F> = batch_commit_G1(&xvars, &crs, &mut rng);
-    let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
 
     let equ: PPE<F> = PPE::<F> {
         a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
@@ -601,13 +599,13 @@ fn bench_small_PPE_verify(c: &mut Criterion) {
         target: Fqk::rand(&mut rng)
     };
 
-    let proof: EquProof<F> = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
+    let proof: CProof<F> = equ.commit_and_prove(&xvars, &yvars, &crs, &mut rng);
 
     c.bench_function(
         &format!("verify PPE equation with 2 G1 vars, 1 G2 var"),
         |bench| {
             bench.iter(|| {
-                let _ = equ.verify(&proof, &xcoms, &ycoms, &crs);
+                let _ = equ.verify(&proof, &crs);
             });
         }
     );
@@ -633,8 +631,6 @@ fn bench_large_PPE_verify(c: &mut Criterion) {
         yvars.push(crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine());
         b_consts.push(crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine());
     }
-    let xcoms: Commit1<F> = batch_commit_G1(&xvars, &crs, &mut rng);
-    let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
 
     let mut gamma: Matrix<Fr> = Vec::with_capacity(m);
     for _ in 0..m {
@@ -653,13 +649,13 @@ fn bench_large_PPE_verify(c: &mut Criterion) {
         target: Fqk::rand(&mut rng)
     };
 
-    let proof: EquProof<F> = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
+    let proof: CProof<F> = equ.commit_and_prove(&xvars, &yvars, &crs, &mut rng);
 
     c.bench_function(
         &format!("verify PPE equation with {} G1 vars, {} G2 var", m, n),
         |bench| {
             bench.iter(|| {
-                let _ = equ.verify(&proof, &xcoms, &ycoms, &crs);
+                let _ = equ.verify(&proof, &crs);
             });
         }
     );
