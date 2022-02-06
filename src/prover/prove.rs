@@ -54,11 +54,87 @@ pub struct CProof<E: PairingEngine> {
     pub equ_proofs: Vec<EquProof<E>>,
 }
 
+/// Commit to variables in scalar field, G1, and G2, then use these committments to prove about a
+/// list of Groth-Sahai equations.
+pub fn commit_and_prove_all<E, CR>(equs: &Statement<E>, xvars: Option<Vec<E::G1Affine>>, yvars: Option<Vec<E::G2Affine>>, scalar_xvars: Option<Vec<E::Fr>>, scalar_yvars: Option<Vec<E::Fr>>, crs: &CRS<E>, rng: &mut CR) -> CProof<E>
+where
+    E: PairingEngine,
+    CR: Rng + CryptoRng,
+{
+    let xcoms: Option<Commit1<E>> = if xvars.is_some() {Some(batch_commit_G1(&xvars.as_ref().unwrap(), crs, rng))} else {None};
+    let ycoms: Option<Commit2<E>> = if yvars.is_some() {Some(batch_commit_G2(&yvars.as_ref().unwrap(), crs, rng))} else {None};
+    let scalar_xcoms: Option<Commit1<E>> = if scalar_xvars.is_some() {Some(batch_commit_scalar_to_B1(&scalar_xvars.as_ref().unwrap(), crs, rng))} else {None};
+    let scalar_ycoms: Option<Commit2<E>> = if scalar_yvars.is_some() {Some(batch_commit_scalar_to_B2(&scalar_yvars.as_ref().unwrap(), crs, rng))} else {None};
+
+    let equ_proofs: Vec<EquProof<E>> = equs.iter().map(|equ| {
+        match equ {
+            Equ::PPE(ppe) => {
+                if xvars.is_none() || yvars.is_none() {
+                    panic!("A pairing product equation must have x variables in G1 and y variables in G2!");
+                }
+                else if xcoms.is_none() {
+                    panic!("An error occurred while committing x variables in G1!");
+                }
+                else if ycoms.is_none() {
+                    panic!("An error occurred while committing y variables in G2!");
+                }
+                ppe.prove(&xvars.as_ref().unwrap(), &yvars.as_ref().unwrap(), &xcoms.as_ref().unwrap(), &ycoms.as_ref().unwrap(), crs, rng)
+            }
+            Equ::MSMEG1(msmeg1) => {
+
+                if xvars.is_none() || scalar_yvars.is_none() {
+                    panic!("A multi-scalar multiplication equation in G1 must have x variables in G1 and y variables in the scalar field!");
+                }
+                else if xcoms.is_none() {
+                    panic!("An error occurred while committing x variables in G1!");
+                }
+                else if scalar_ycoms.is_none() {
+                    panic!("An error occurred while committing scalar y variables!");
+                }
+                msmeg1.prove(&xvars.as_ref().unwrap(), &scalar_yvars.as_ref().unwrap(), &xcoms.as_ref().unwrap(), &scalar_ycoms.as_ref().unwrap(), crs, rng)
+            }
+            Equ::MSMEG2(msmeg2) => {
+
+                if scalar_xvars.is_none() || yvars.is_none() {
+                    panic!("A multi-scalar multiplication equation in G2 must contain x variables in the scalar field and y variables in G2!");
+                }
+                else if scalar_xcoms.is_none() {
+                    panic!("An error occurred while committing scalar x variables!");
+                }
+                else if ycoms.is_none() {
+                    panic!("An error occurred while committing y variables in G2!");
+                }
+                msmeg2.prove(&scalar_xvars.as_ref().unwrap(), &yvars.as_ref().unwrap(), &scalar_xcoms.as_ref().unwrap(), &ycoms.as_ref().unwrap(), crs, rng)
+            }
+            Equ::QuadEqu(qe) => {
+
+                if scalar_xvars.is_none() || scalar_yvars.is_none() {
+                    panic!("A quadratic equation must contain x and y variables in the scalar field!");
+                }
+                else if scalar_xcoms.is_none() {
+                    panic!("An error occurred while committing scalar x variables!");
+                }
+                else if scalar_ycoms.is_none() {
+                    panic!("An error occurred while committing scalar y variables!");
+                }
+                qe.prove(&scalar_xvars.as_ref().unwrap(), &scalar_yvars.as_ref().unwrap(), &scalar_xcoms.as_ref().unwrap(), &scalar_ycoms.as_ref().unwrap(), crs, rng)
+            }
+        }
+    })
+    .collect::<Vec<EquProof<E>>>();
+
+    CProof::<E> {
+        xcoms: xcoms.as_ref().unwrap().clone(),
+        ycoms: ycoms.as_ref().unwrap().clone(),
+        equ_proofs,
+    }
+}
+
 impl<E: PairingEngine> Provable<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> {
 
     fn commit_and_prove<CR>(&self, xvars: &Vec<E::G1Affine>, yvars: &Vec<E::G2Affine>, crs: &CRS<E>, rng: &mut CR) -> CProof<E>
     where
-        CR: Rng + CryptoRng
+        CR: Rng + CryptoRng,
     {
         let xcoms: Commit1<E> = batch_commit_G1(&xvars, crs, rng);
         let ycoms: Commit2<E> = batch_commit_G2(&yvars, crs, rng);
@@ -72,7 +148,7 @@ impl<E: PairingEngine> Provable<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
 
     fn prove<CR>(&self, xvars: &Vec<E::G1Affine>, yvars: &Vec<E::G2Affine>, xcoms: &Commit1<E>, ycoms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E>
     where
-        CR: Rng + CryptoRng
+        CR: Rng + CryptoRng,
     {
         // Gamma is an (m x n) matrix with m x variables and n y variables
         // x's commit randomness (i.e. R) is a (m x 2) matrix
@@ -142,7 +218,7 @@ impl<E: PairingEngine> Provable<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E
 
     fn commit_and_prove<CR>(&self, xvars: &Vec<E::G1Affine>, scalar_yvars: &Vec<E::Fr>, crs: &CRS<E>, rng: &mut CR) -> CProof<E>
     where
-        CR: Rng + CryptoRng
+        CR: Rng + CryptoRng,
     {
         let xcoms: Commit1<E> = batch_commit_G1(&xvars, crs, rng);
         let scalar_ycoms: Commit2<E> = batch_commit_scalar_to_B2(&scalar_yvars, crs, rng);
@@ -156,7 +232,7 @@ impl<E: PairingEngine> Provable<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E
 
     fn prove<CR>(&self, xvars: &Vec<E::G1Affine>, scalar_yvars: &Vec<E::Fr>, xcoms: &Commit1<E>, scalar_ycoms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E>
     where
-        CR: Rng + CryptoRng
+        CR: Rng + CryptoRng,
     {
         // Gamma is an (m x n') matrix with m x variables and n' scalar y variables
         // x's commit randomness (i.e. R) is a (m x 2) matrix
@@ -225,7 +301,7 @@ impl<E: PairingEngine> Provable<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E
 
     fn commit_and_prove<CR>(&self, scalar_xvars: &Vec<E::Fr>, yvars: &Vec<E::G2Affine>, crs: &CRS<E>, rng: &mut CR) -> CProof<E>
     where
-        CR: Rng + CryptoRng
+        CR: Rng + CryptoRng,
     {
         let scalar_xcoms: Commit1<E> = batch_commit_scalar_to_B1(&scalar_xvars, crs, rng);
         let ycoms: Commit2<E> = batch_commit_G2(&yvars, crs, rng);
@@ -239,7 +315,7 @@ impl<E: PairingEngine> Provable<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E
 
     fn prove<CR>(&self, scalar_xvars: &Vec<E::Fr>, yvars: &Vec<E::G2Affine>, scalar_xcoms: &Commit1<E>, ycoms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E>
     where
-        CR: Rng + CryptoRng
+        CR: Rng + CryptoRng,
     {
         // Gamma is an (m' x n) matrix with m' x variables and n y variables
         // x's commit randomness (i.e. r) is a (m' x 1) matrix (i.e. column vector)
@@ -309,7 +385,7 @@ impl<E: PairingEngine> Provable<E, E::Fr, E::Fr, E::Fr> for QuadEqu<E> {
 
     fn commit_and_prove<CR>(&self, scalar_xvars: &Vec<E::Fr>, scalar_yvars: &Vec<E::Fr>, crs: &CRS<E>, rng: &mut CR) -> CProof<E>
     where
-        CR: Rng + CryptoRng
+        CR: Rng + CryptoRng,
     {
         let scalar_xcoms: Commit1<E> = batch_commit_scalar_to_B1(&scalar_xvars, crs, rng);
         let scalar_ycoms: Commit2<E> = batch_commit_scalar_to_B2(&scalar_yvars, crs, rng);
@@ -322,7 +398,7 @@ impl<E: PairingEngine> Provable<E, E::Fr, E::Fr, E::Fr> for QuadEqu<E> {
     }
     fn prove<CR>(&self, scalar_xvars: &Vec<E::Fr>, scalar_yvars: &Vec<E::Fr>, scalar_xcoms: &Commit1<E>, scalar_ycoms: &Commit2<E>, crs: &CRS<E>, rng: &mut CR) -> EquProof<E>
     where
-        CR: Rng + CryptoRng
+        CR: Rng + CryptoRng,
     {
         // Gamma is an (m' x n') matrix with m' x variables and n' y variables
         // x's commit randomness (i.e. r) is a (m' x 1) matrix (i.e. column vector)
@@ -400,7 +476,30 @@ mod tests {
     type G2Affine = <F as PairingEngine>::G2Affine;
     type Fr = <F as PairingEngine>::Fr;
     type Fqk = <F as PairingEngine>::Fqk;
+/*
+    #[test]
+    fn test_commit_and_prove_single_PPE() {
 
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let xvars: Vec<G1Affine> = vec![
+            crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine(),
+            crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()
+        ];
+        let yvars: Vec<G2Affine> = vec![
+            crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()
+        ];
+
+        let equ: PPE<F> = PPE::<F> {
+            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(), crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
+            target: Fqk::rand(&mut rng)
+        };
+        let proof: CProof<F> = super::commit_and_prove_all(&vec![Equ::PPE(equ)], Some(xvars), Some(yvars), None, None, &crs, &mut rng);
+    }
+*/
     #[test]
     fn test_PPE_proof_type() {
 

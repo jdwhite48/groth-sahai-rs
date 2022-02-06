@@ -37,7 +37,7 @@ use crate::data_structures::Matrix;
 use crate::prover::Provable;
 use crate::verifier::Verifiable;
 
-/// Groth-Sahai statement (i.e. bilinear equation) types.
+/// A marker enum for Groth-Sahai statement (i.e. bilinear equation) types.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EquType {
     PairingProduct,
@@ -46,21 +46,14 @@ pub enum EquType {
     Quadratic
 }
 
-/// A marker trait for an arbitrary Groth-Sahai [`Equation`](self::Equation).
-pub trait Equ {}
-
 /// A single equation, defined over an arbitrary bilinear group `(A1, A2, AT)`, that forms
 /// the atomic unit for a Groth-Sahai [`Statement`](self::Statement).
 pub trait Equation<E: PairingEngine, A1, A2, AT>:
-    Equ
-    + Provable<E, A1, A2, AT>
+    Provable<E, A1, A2, AT>
     + Verifiable<E>
 {
     fn get_type(&self) -> EquType;
 }
-
-/// A collection of Groth-Sahai compatible bilinear [`Equations`](self::Equation).
-pub type Statement = Vec<dyn Equ>;
 
 /// A pairing-product equation, equipped with the bilinear group pairing
 /// [`e`](ark_ec::PairingEngine::pairing)` : G1 x G2 -> GT`.
@@ -76,14 +69,6 @@ pub struct PPE<E: PairingEngine> {
     pub target: E::Fqk
 }
 
-impl<E: PairingEngine> Equ for PPE<E> {}
-impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> {
-    #[inline(always)]
-    fn get_type(&self) -> EquType {
-        EquType::PairingProduct
-    }
-}
-
 /// A multi-scalar multiplication equation in [`G1`](ark_ec::PairingEngine::G1Affine), equipped with point-scalar multiplication as pairing.
 ///
 /// For example, the equation `n * W + (v * U)^5 = t_1` can be expressed by the following
@@ -95,14 +80,6 @@ pub struct MSMEG1<E: PairingEngine> {
     pub b_consts: Vec<E::Fr>,
     pub gamma: Matrix<E::Fr>,
     pub target: E::G1Affine
-}
-
-impl<E: PairingEngine> Equ for MSMEG1<E> {}
-impl<E: PairingEngine> Equation<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E> {
-    #[inline(always)]
-    fn get_type(&self) -> EquType {
-        EquType::MultiScalarG1
-    }
 }
 
 /// A multi-scalar multiplication equation in [`G2`](ark_ec::PairingEngine::G2Affine), equipped with point-scalar multiplication as pairing.
@@ -117,14 +94,6 @@ pub struct MSMEG2<E: PairingEngine> {
     pub gamma: Matrix<E::Fr>,
     pub target: E::G2Affine
 }
-impl<E: PairingEngine> Equ for MSMEG2<E> {}
-impl<E: PairingEngine> Equation<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E> {
-    #[inline(always)]
-    fn get_type(&self) -> EquType {
-        EquType::MultiScalarG2
-    }
-}
-
 
 /// A quadratic equation in the [scalar field](ark_ec::PairingEngine::Fr), equipped with field multiplication as pairing.
 ///
@@ -138,7 +107,39 @@ pub struct QuadEqu<E: PairingEngine> {
     pub gamma: Matrix<E::Fr>,
     pub target: E::Fr
 }
-impl<E: PairingEngine> Equ for QuadEqu<E> {}
+
+/// An arbitrary Groth-Sahai equation.
+pub enum Equ<E: PairingEngine> {
+    PPE(PPE<E>),
+    MSMEG1(MSMEG1<E>),
+    MSMEG2(MSMEG2<E>),
+    QuadEqu(QuadEqu<E>),
+}
+
+/// A collection of Groth-Sahai compatible bilinear [`Equations`](self::Equation).
+pub type Statement<E> = Vec<Equ<E>>;
+
+impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> {
+    #[inline(always)]
+    fn get_type(&self) -> EquType {
+        EquType::PairingProduct
+    }
+}
+
+impl<E: PairingEngine> Equation<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E> {
+    #[inline(always)]
+    fn get_type(&self) -> EquType {
+        EquType::MultiScalarG1
+    }
+}
+
+impl<E: PairingEngine> Equation<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E> {
+    #[inline(always)]
+    fn get_type(&self) -> EquType {
+        EquType::MultiScalarG2
+    }
+}
+
 impl<E: PairingEngine> Equation<E, E::Fr, E::Fr, E::Fr> for QuadEqu<E> {
     #[inline(always)]
     fn get_type(&self) -> EquType {
