@@ -36,13 +36,18 @@ use ark_std::{
 };
 use rayon::prelude::*;
 extern crate nalgebra as na;
-// extern crate groth_sahai as gs;
 use na::{ClosedAdd, ClosedMul};
 use na::{Matrix2x1, Matrix2, Vector2};
 
 use crate::generator::*;
 
-// TODO: Replace with nalgebra
+// Matrices in Fqk/GT and Fr are automatically amenable with nalgebra because, as a field,
+// they're closed under both addition and multiplication. *However*, we also need group matrix
+// "multiplication" over (acting on) matrices of the underlying scalar Fr; however, this results
+// in a type mismatch e.g. `Fr = Com1` when `impl Mul<E::Fr, Output=Com1<E>> for Com1<E>`
+// is necessarily implemented for nalgebra::ClosedMul.
+// TODO: Figure out how to specialize such that we can allow for Fr^{m x n} * G1^{n x p} and
+// G1^{m x n} * Fr^{n x p} matrix multiplication using nalgebra, or else see if it's even worth it.
 /*
 pub trait Mat<Elem: Clone>:
     Eq
@@ -86,7 +91,8 @@ pub trait B1<E: PairingEngine>:
 //    + Into<Matrix2x1<E::G1Affine>>
     + Mul<E::Fr, Output = Self>
     + MulAssign<E::Fr>
-//    + ClosedAdd
+    + ClosedAdd
+    // NOTE: Not closed under itself, but closed under group action with E::Fr
 //    + ClosedMul
 {
     // TODO: Into
@@ -108,7 +114,8 @@ pub trait B2<E: PairingEngine>:
 //    + Into<Matrix2x1<E::G2Affine>>
     + Mul<E::Fr, Output = Self>
     + MulAssign<E::Fr>
-//    + ClosedAdd
+    + ClosedAdd
+    // NOTE: Not closed under itself, but closed under group action with E::Fr
 //    + ClosedMul
 {
     // TODO: Into
