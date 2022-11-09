@@ -27,10 +27,12 @@
 use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
 #[allow(unused_imports)]
 use ark_ff::{Zero, One, Field, field_new};
-use ark_std::{
-    fmt::Debug,
-    ops::{Add, AddAssign, Neg, Sub, SubAssign},
+use core::{
+    ops::{Add, AddAssign, Neg, Sub, SubAssign, Mul, MulAssign},
     iter::Sum
+};
+use ark_std::{
+    fmt::Debug
 };
 use rayon::prelude::*;
 extern crate nalgebra as na;
@@ -66,6 +68,7 @@ pub trait B<E: PairingEngine>:
     Eq
     + Copy
     + Clone
+    + Sized
     + Debug
     + Zero
     + Add<Self, Output = Self>
@@ -74,16 +77,17 @@ pub trait B<E: PairingEngine>:
     + SubAssign<Self>
     + Neg<Output = Self>
     + Sum
-//    + Mul<Fr, Output = Self>
-//    + MulAssign<Fr, Output = Self>
-{
-}
+{}
 
 /// Provides linear maps and vector conversions for the base of the GS commitment group.
 pub trait B1<E: PairingEngine>:
     B<E>
     + From<Vec<E::G1Affine>>
 //    + Into<Matrix2x1<E::G1Affine>>
+    + Mul<E::Fr, Output = Self>
+    + MulAssign<E::Fr>
+//    + ClosedAdd
+//    + ClosedMul
 {
     // TODO: Into
     fn as_mat(&self) -> Matrix2x1<E::G1Affine>;
@@ -94,9 +98,6 @@ pub trait B1<E: PairingEngine>:
     /// The linear map from scalar field to B1 for multi-scalar multiplication and quadratic equations.
     fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self;
     fn batch_scalar_linear_map(x_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
-
-    // TODO: Replace with Mul/MulAssign
-    fn scalar_mul(&self, other: &E::Fr) -> Self;
 }
 
 /// Provides linear maps and vector conversions for the extension of the GS commitment group.
@@ -105,6 +106,10 @@ pub trait B2<E: PairingEngine>:
 //    + MulAssign<E::Fr>
     + From<Vec<E::G2Affine>>
 //    + Into<Matrix2x1<E::G2Affine>>
+    + Mul<E::Fr, Output = Self>
+    + MulAssign<E::Fr>
+//    + ClosedAdd
+//    + ClosedMul
 {
     // TODO: Into
     fn as_mat(&self) -> Matrix2x1<E::G2Affine>;
@@ -115,9 +120,6 @@ pub trait B2<E: PairingEngine>:
     /// The linear map from scalar field to B2 for multi-scalar multiplication and quadratic equations.
     fn scalar_linear_map(y: &E::Fr, key: &CRS<E>) -> Self;
     fn batch_scalar_linear_map(y_vec: &Vec<E::Fr>, key: &CRS<E>) -> Vec<Self>;
-
-    // TODO: Replace with Mul/MulAssign
-    fn scalar_mul(&self, other: &E::Fr) -> Self;
 }
 
 /// Provides linear maps and matrix conversions for the target of the GS commitment group, as well as the equipped pairing.
@@ -125,6 +127,10 @@ pub trait BT<E: PairingEngine, C1: B1<E>, C2: B2<E>>:
     B<E>
     + From<Vec<E::Fqk>>
 //  + Into<Matrix2<E::Fqk>>
+    + Mul<Self, Output = Self>
+    + MulAssign<Self>
+    + ClosedAdd
+    + ClosedMul
 {
     // TODO: Into
     fn as_mat(&self) -> Matrix2<E::Fqk>;
@@ -258,6 +264,37 @@ macro_rules! impl_base_commit_groups {
                     )
                 }
             }
+
+            // Scalar multiplication
+            impl<E: PairingEngine> Mul<E::Fr> for $com<E> {
+                type Output = Self;
+
+                #[inline]
+                fn mul(self, other: E::Fr) -> Self {
+                    let mut s1p = self.0.clone().into_projective();
+                    let mut s2p = self.1.clone().into_projective();
+                    s1p *= other;
+                    s2p *= other;
+                    Self (
+                        s1p.into_affine().clone(),
+                        s2p.into_affine().clone()
+                    )
+                }
+            }
+
+            impl<E: PairingEngine> MulAssign<E::Fr> for $com<E> {
+                #[inline]
+                fn mul_assign(&mut self, other: E::Fr) {
+                    let mut s1p = self.0.clone().into_projective();
+                    let mut s2p = self.1.clone().into_projective();
+                    s1p *= other;
+                    s2p *= other;
+                    *self = Self (
+                        s1p.into_affine().clone(),
+                        s2p.into_affine().clone()
+                    );
+                }
+            }
         )*
     }
 }
@@ -342,7 +379,7 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
     #[inline]
     fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self {
         // = xu, where u = u_2 + (O, P) is a commitment group element
-        ( key.u[1] + Com1::<E>::linear_map(&key.g1_gen) ).scalar_mul(&x)
+        ( key.u[1] + Com1::<E>::linear_map(&key.g1_gen) ) * *x
     }
 
     #[inline]
@@ -351,18 +388,6 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
             .into_iter()
             .map( |elem| Self::scalar_linear_map(&elem, key))
             .collect::<Vec<Self>>()
-    }
-
-    fn scalar_mul(&self, rhs: &E::Fr) -> Self {
-
-        let mut s1p = self.0.clone().into_projective();
-        let mut s2p = self.1.clone().into_projective();
-        s1p *= *rhs;
-        s2p *= *rhs;
-        Self (
-            s1p.into_affine().clone(),
-            s2p.into_affine().clone()
-        )
     }
 }
 
@@ -395,7 +420,7 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
     #[inline]
     fn scalar_linear_map(y: &E::Fr, key: &CRS<E>) -> Self {
         // = yv, where v = v_2 + (O, P) is a commitment group element
-        ( key.v[1] + Com2::<E>::linear_map(&key.g2_gen) ).scalar_mul(&y)
+        ( key.v[1] + Com2::<E>::linear_map(&key.g2_gen) ) * *y
     }
 
     #[inline]
@@ -404,18 +429,6 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
             .into_iter()
             .map( |elem| Self::scalar_linear_map(&elem, key))
             .collect::<Vec<Self>>()
-    }
-
-    fn scalar_mul(&self, rhs: &E::Fr) -> Self{
-
-        let mut s1p = self.0.clone().into_projective();
-        let mut s2p = self.1.clone().into_projective();
-        s1p *= *rhs;
-        s2p *= *rhs;
-        Self (
-            s1p.into_affine().clone(),
-            s2p.into_affine().clone()
-        )
     }
 }
 
@@ -527,8 +540,35 @@ impl<E: PairingEngine> Sum for ComT<E> {
     }
 }
 
+impl<E: PairingEngine> Mul<ComT<E>> for ComT<E> {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, other: Self) -> Self {
+        Self (
+            self.0 * other.0,
+            self.1 * other.1,
+            self.2 * other.2,
+            self.3 * other.3,
+        )
+    }
+}
+
+impl<E: PairingEngine> MulAssign<ComT<E>> for ComT<E> {
+    #[inline]
+    fn mul_assign(&mut self, other: Self) {
+        *self = Self (
+            self.0 * other.0,
+            self.1 * other.1,
+            self.2 * other.2,
+            self.3 * other.3,
+        );
+    }
+}
+
 impl<E: PairingEngine> B<E> for ComT<E> {}
 impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
+
     #[inline]
     fn pairing(x: Com1<E>, y: Com2<E>) -> ComT<E> {
         ComT::<E>(
@@ -579,7 +619,7 @@ impl<E: PairingEngine> BT<E, Com1<E>, Com2<E>> for ComT<E> {
 
     #[inline]
     fn linear_map_quad(z: &E::Fr, key: &CRS<E>) -> Self {
-        Self::pairing(Com1::<E>::scalar_linear_map(&E::Fr::one(), key), Com2::<E>::scalar_linear_map(&E::Fr::one(), key).scalar_mul(z))
+        Self::pairing(Com1::<E>::scalar_linear_map(&E::Fr::one(), key), Com2::<E>::scalar_linear_map(&E::Fr::one(), key) * *z)
     }
 }
 
@@ -665,7 +705,7 @@ macro_rules! impl_base_commit_mats {
                     for i in 0..m {
                         smul.push(Vec::with_capacity(n));
                         for j in 0..n {
-                            smul[i].push(self[i][j].scalar_mul(&other));
+                            smul[i].push(self[i][j] * other);
                         }
                     }
                     smul
@@ -710,7 +750,7 @@ macro_rules! impl_base_commit_mats {
                                 let mut cols = (0..rhs[0].len())
                                     .into_par_iter()
                                     .map( |j| {
-                                        (j, (0..dim).map( |k| row[k].scalar_mul(&rhs[k][j])).sum())
+                                        (j, (0..dim).map( |k| row[k] * rhs[k][j] ).sum())
                                     })
                                     .collect::<Vec<(usize, $com<E>)>>();
 
@@ -745,7 +785,7 @@ macro_rules! impl_base_commit_mats {
                                 // Assuming every column in b has the same length
                                 (0..rhs[0].len())
                                     .map( |j| {
-                                        (0..dim).map( |k| row[k].scalar_mul(&rhs[k][j]) ).sum()
+                                        (0..dim).map( |k| row[k] * rhs[k][j) ).sum()
                                     })
                                     .collect::<Vec<$com<E>>>()
                             })
@@ -776,7 +816,7 @@ macro_rules! impl_base_commit_mats {
                                 let mut cols = (0..self[0].len())
                                     .into_par_iter()
                                     .map( |j| {
-                                        (j, (0..dim).map( |k| self[k][j].scalar_mul(&row[k]) ).sum())
+                                        (j, (0..dim).map( |k| self[k][j] * row[k] ).sum())
                                     })
                                     .collect::<Vec<(usize, $com<E>)>>();
 
@@ -807,7 +847,7 @@ macro_rules! impl_base_commit_mats {
                                 let dim = self.len();
                                 (0..self[0].len())
                                     .map( |j| {
-                                        (0..dim).map( |k| self[k][j].scalar_mul(&row[k]) ).sum()
+                                        (0..dim).map( |k| self[k][j] * row[k] ).sum()
                                     })
                                     .collect::<Vec<$com<E>>>()
                             })
@@ -1054,6 +1094,7 @@ mod tests {
         // Scalar for elliptic curves
         type Fr = <F as PairingEngine>::Fr;
 
+        // TODO: move/remove
         #[test]
         fn test_na_field_matrix_add() {
 
@@ -1381,7 +1422,7 @@ mod tests {
             let scalar = Fr::rand(&mut rng);
             let b0 = b.0.mul(scalar);
             let b1 = b.1.mul(scalar);
-            let bres = b.scalar_mul(&scalar);
+            let bres = b * scalar;
             let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
 
             assert_eq!(bres, bexp);
@@ -1397,7 +1438,7 @@ mod tests {
             let scalar = Fr::rand(&mut rng);
             let b0 = b.0.mul(scalar);
             let b1 = b.1.mul(scalar);
-            let bres = b.scalar_mul(&scalar);
+            let bres = b * scalar;
             let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
 
             assert_eq!(bres, bexp);
@@ -1683,8 +1724,8 @@ mod tests {
             assert_eq!(b1.1, W1.1.mul(a1));
             assert_eq!(b2.0, W2.0.mul(a2));
             assert_eq!(b2.1, W2.1.mul(a2));
-            assert_eq!(bt, ComT::<F>::pairing(W1.scalar_mul(&a1), W2.scalar_mul(&a2)));
-            assert_eq!(bt, ComT::<F>::pairing(W1, W2.scalar_mul(&at)));
+            assert_eq!(bt, ComT::<F>::pairing(W1 * a1, W2 * a2));
+            assert_eq!(bt, ComT::<F>::pairing(W1, W2 * at));
         }
     }
 
