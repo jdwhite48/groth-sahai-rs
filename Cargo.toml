@@ -16,6 +16,7 @@ ark-bls12-381 = { version = "^0.3.0" }
 ark-ec = { version = "^0.3.0", default-features = false }
 ark-ff = { version = "^0.3.0", default-features = false }
 ark-std = { version = "^0.3.0", default-features = false }
+nalgebra = "^0.31.3"
 rayon = { version = "^1.5.1" }
 
 [dev-dependencies]
