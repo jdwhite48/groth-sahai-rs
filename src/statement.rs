@@ -33,7 +33,7 @@
 
 use ark_ec::PairingEngine;
 
-use crate::data_structures::Matrix;
+use nalgebra::{DVector, DMatrix};
 use crate::prover::Provable;
 use crate::verifier::Verifiable;
 
@@ -70,9 +70,9 @@ pub type Statement = Vec<dyn Equ>;
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_T` in `GT`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PPE<E: PairingEngine> {
-    pub a_consts: Vec<E::G1Affine>,
-    pub b_consts: Vec<E::G2Affine>,
-    pub gamma: Matrix<E::Fr>,
+    pub a_consts: DVector<E::G1Affine>,
+    pub b_consts: DVector<E::G2Affine>,
+    pub gamma: DMatrix<E::Fr>,
     pub target: E::Fqk
 }
 
@@ -91,9 +91,9 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::G2Affine, E::Fqk> for PPE<E> 
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_1` in `G1`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MSMEG1<E: PairingEngine> {
-    pub a_consts: Vec<E::G1Affine>,
-    pub b_consts: Vec<E::Fr>,
-    pub gamma: Matrix<E::Fr>,
+    pub a_consts: DVector<E::G1Affine>,
+    pub b_consts: DVector<E::Fr>,
+    pub gamma: DMatrix<E::Fr>,
     pub target: E::G1Affine
 }
 
@@ -112,9 +112,9 @@ impl<E: PairingEngine> Equation<E, E::G1Affine, E::Fr, E::G1Affine> for MSMEG1<E
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_2` in `G2`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MSMEG2<E: PairingEngine> {
-    pub a_consts: Vec<E::Fr>,
-    pub b_consts: Vec<E::G2Affine>,
-    pub gamma: Matrix<E::Fr>,
+    pub a_consts: DVector<E::Fr>,
+    pub b_consts: DVector<E::G2Affine>,
+    pub gamma: DMatrix<E::Fr>,
     pub target: E::G2Affine
 }
 impl<E: PairingEngine> Equ for MSMEG2<E> {}
@@ -133,9 +133,9 @@ impl<E: PairingEngine> Equation<E, E::Fr, E::G2Affine, E::G2Affine> for MSMEG2<E
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_p` in `Fr`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuadEqu<E: PairingEngine> {
-    pub a_consts: Vec<E::Fr>,
-    pub b_consts: Vec<E::Fr>,
-    pub gamma: Matrix<E::Fr>,
+    pub a_consts: DVector<E::Fr>,
+    pub b_consts: DVector<E::Fr>,
+    pub gamma: DMatrix<E::Fr>,
     pub target: E::Fr
 }
 impl<E: PairingEngine> Equ for QuadEqu<E> {}
@@ -168,9 +168,9 @@ mod tests {
         let crs = CRS::<F>::generate_crs(&mut rng);
 
         let equ: PPE<F> = PPE::<F> {
-            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
-            b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
-            gamma: vec![vec![Fr::rand(&mut rng)]],
+            a_consts: DVector::from_column_slice(&[crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()]),
+            b_consts: DVector::from_column_slice(&[crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()]),
+            gamma: DMatrix::from_element(1, 1, Fr::rand(&mut rng)),
             target: Fqk::rand(&mut rng)
         };
 
@@ -184,9 +184,9 @@ mod tests {
         let crs = CRS::<F>::generate_crs(&mut rng);
 
         let equ: MSMEG1<F> = MSMEG1::<F> {
-            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
-            b_consts: vec![Fr::rand(&mut rng)],
-            gamma: vec![vec![Fr::rand(&mut rng)]],
+            a_consts: DVector::from_column_slice(&[crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()]),
+            b_consts: DVector::from_column_slice(&[rand(&mut rng)]),
+            gamma: DMatrix::from_element(1, 1, Fr::rand(&mut rng)),
             target: crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()
         };
 
@@ -200,9 +200,9 @@ mod tests {
         let crs = CRS::<F>::generate_crs(&mut rng);
 
         let equ: MSMEG2<F> = MSMEG2::<F> {
-            a_consts: vec![Fr::rand(&mut rng)],
-            b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
-            gamma: vec![vec![Fr::rand(&mut rng)]],
+            a_consts: DVector::from_column_slice(&[Fr::rand(&mut rng)]),
+            b_consts: DVector::from_column_slice(&[crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()]),
+            gamma: DMatrix::from_element(1, 1, Fr::rand(&mut rng)),
             target: crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()
         };
 
@@ -215,9 +215,9 @@ mod tests {
         let mut rng = test_rng();
 
         let equ: QuadEqu<F> = QuadEqu::<F> {
-            a_consts: vec![Fr::rand(&mut rng)],
-            b_consts: vec![Fr::rand(&mut rng)],
-            gamma: vec![vec![Fr::rand(&mut rng)]],
+            a_consts: DVector::from_column_slice(&[Fr::rand(&mut rng)]),
+            b_consts: DVector::from_column_slice(&[Fr::rand(&mut rng)]),
+            gamma: DMatrix::from_element(1, 1, Fr::rand(&mut rng)),
             target: Fr::rand(&mut rng)
         };
 

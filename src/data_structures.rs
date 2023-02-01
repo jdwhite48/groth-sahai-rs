@@ -386,7 +386,7 @@ impl<E: PairingEngine> B1<E> for Com1<E> {
     #[inline]
     fn scalar_linear_map(x: &E::Fr, key: &CRS<E>) -> Self {
         // = xu, where u = u_2 + (O, P) is a commitment group element
-        ( key.u[1] + Com1::<E>::linear_map(&key.g1_gen) ) * *x
+        ( key.u.y + Com1::<E>::linear_map(&key.g1_gen) ) * *x
     }
 
     #[inline]
@@ -427,7 +427,7 @@ impl<E: PairingEngine> B2<E> for Com2<E> {
     #[inline]
     fn scalar_linear_map(y: &E::Fr, key: &CRS<E>) -> Self {
         // = yv, where v = v_2 + (O, P) is a commitment group element
-        ( key.v[1] + Com2::<E>::linear_map(&key.g2_gen) ) * *y
+        ( key.v.y + Com2::<E>::linear_map(&key.g2_gen) ) * *y
     }
 
     #[inline]
@@ -1082,13 +1082,17 @@ mod tests {
     mod SXDH_com_group {
 
         use ark_bls12_381::{Bls12_381 as F};
-        use ark_ff::UniformRand;
-        use ark_ec::ProjectiveCurve;
+        use ark_ff::{Zero, One, Field, field_new, UniformRand};
+        use ark_ec::{AffineCurve, ProjectiveCurve, PairingEngine};
         use ark_std::test_rng;
 
-        use na::{Matrix3, SMatrix};
+        use nalgebra::{Matrix, Matrix2x1, Matrix2, Matrix3, SMatrix};
 
-        use crate::mat::*;
+        use crate::data_structures::*;
+        use crate::generator::{CRS, AbstractCrs};
+
+        //use crate::mat::*;
+
 
         // G_1
         type G1Affine = <F as PairingEngine>::G1Affine;
@@ -1246,7 +1250,6 @@ mod tests {
             assert_eq!(ab, ComT::<F>(a.0 * b.0, a.1 * b.1, a.2 * b.2, a.3 * b.3));
             assert_eq!(ab, ba);
         }
-
 
         #[test]
         fn test_B1_sum() {
@@ -1674,12 +1677,12 @@ mod tests {
 
             assert_eq!(b1.0, G1Affine::zero());
             assert_eq!(b1.1, a1);
-            assert_eq!(b2.0, key.v[1].0.mul(a2));
-            assert_eq!(b2.1, (key.v[1].1 + key.g2_gen).mul(a2));
+            assert_eq!(b2.0, key.v.y.0.mul(a2));
+            assert_eq!(b2.1, (key.v.y.1 + key.g2_gen).mul(a2));
             assert_eq!(bt.0, Fqk::one());
             assert_eq!(bt.1, Fqk::one());
-            assert_eq!(bt.2, F::pairing(at.clone(), key.v[1].0.clone()));
-            assert_eq!(bt.3, F::pairing(at.clone(), key.v[1].1.clone() + key.g2_gen.clone()));
+            assert_eq!(bt.2, F::pairing(at.clone(), key.v.y.0.clone()));
+            assert_eq!(bt.3, F::pairing(at.clone(), key.v.y.1.clone() + key.g2_gen.clone()));
         }
 
         // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
@@ -1696,14 +1699,14 @@ mod tests {
             let b2 = Com2::<F>::linear_map(&a2);
             let bt = ComT::<F>::linear_map_MSMEG2(&at, &key);
 
-            assert_eq!(b1.0, key.u[1].0.mul(a1));
-            assert_eq!(b1.1, (key.u[1].1 + key.g1_gen).mul(a1));
+            assert_eq!(b1.0, key.u.y.0.mul(a1));
+            assert_eq!(b1.1, (key.u.y.1 + key.g1_gen).mul(a1));
             assert_eq!(b2.0, G2Affine::zero());
             assert_eq!(b2.1, a2);
             assert_eq!(bt.0, Fqk::one());
-            assert_eq!(bt.1, F::pairing(key.u[1].0.clone(), at.clone()));
+            assert_eq!(bt.1, F::pairing(key.u.y.0.clone(), at.clone()));
             assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, F::pairing(key.u[1].1.clone() + key.g1_gen.clone(), at.clone()));
+            assert_eq!(bt.3, F::pairing(key.u.y.1.clone() + key.g1_gen.clone(), at.clone()));
         }
 
         // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
@@ -1720,12 +1723,12 @@ mod tests {
             let b2 = Com2::<F>::scalar_linear_map(&a2, &key);
             let bt = ComT::<F>::linear_map_quad(&at, &key);
             let W1 = Com1::<F>(
-                key.u[1].0,
-                key.u[1].1 + key.g1_gen
+                key.u.y.0,
+                key.u.y.1 + key.g1_gen
             );
             let W2 = Com2::<F>(
-                key.v[1].0,
-                key.v[1].1 + key.g2_gen
+                key.v.y.0,
+                key.v.y.1 + key.g2_gen
             );
             assert_eq!(b1.0, W1.0.mul(a1));
             assert_eq!(b1.1, W1.1.mul(a1));

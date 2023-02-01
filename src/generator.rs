@@ -17,6 +17,8 @@ use ark_std::rand::{CryptoRng, Rng};
 use ark_ff::{Zero, UniformRand};
 use ark_ec::{AffineCurve, ProjectiveCurve, PairingEngine};
 
+use nalgebra::Vector2;
+
 /// An abstract trait for denoting how to generate a CRS
 pub trait AbstractCrs<E: PairingEngine> {
 
@@ -29,8 +31,8 @@ pub trait AbstractCrs<E: PairingEngine> {
 /// Contains the commitment keys and bilinear group generators
 pub struct CRS<E: PairingEngine>
 {
-    pub u: Vec<Com1<E>>,
-    pub v: Vec<Com2<E>>,
+    pub u: Vector2<Com1<E>>,
+    pub v: Vector2<Com2<E>>,
     pub g1_gen: E::G1Affine,
     pub g2_gen: E::G2Affine,
     pub gt_gen: E::Fqk,
@@ -109,8 +111,8 @@ impl<E: PairingEngine> AbstractCrs<E> for CRS<E> {
         let u22 = Com2::<E>(u2.into_affine(), v2.into_affine());
 
         CRS::<E> {
-            u: vec![u11, u12],
-            v: vec![u21, u22],
+            u: Vector2::new(u11, u12),
+            v: Vector2::new(u21, u22),
             g1_gen: p1.into_affine(),
             g2_gen: p2.into_affine(),
             gt_gen: E::pairing::<E::G1Affine, E::G2Affine>(p1.into_affine(), p2.into_affine())
@@ -173,16 +175,16 @@ mod tests {
         let (v1, v2) = CRS::<F>::prepare_real_binding_key(p1, p2, q1, t1, q2, t2);
 
         // Generated commitment keys are non-trivial
-        assert_ne!(crs.u[0], Com1::zero());
-        assert_ne!(crs.u[1], Com1::zero());
-        assert_ne!(crs.v[0], Com2::zero());
-        assert_ne!(crs.v[1], Com2::zero());
+        assert_ne!(crs.u.x, Com1::zero());
+        assert_ne!(crs.u.y, Com1::zero());
+        assert_ne!(crs.v.x, Com2::zero());
+        assert_ne!(crs.v.y, Com2::zero());
 
         // The chosen keys are binding (i.e. not hiding)
         assert_ne!(crs.g1_gen, G1Affine::zero());
         assert_ne!(crs.g2_gen, G2Affine::zero());
-        assert_eq!(crs.u[1].1, v1.into_affine());
-        assert_eq!(crs.v[1].1, v2.into_affine());
+        assert_eq!(crs.u.y.1, v1.into_affine());
+        assert_eq!(crs.v.y.1, v2.into_affine());
     }
 }
 
