@@ -71,7 +71,7 @@ where
 
     // c := i_1(x) + r_1 u_1 + r_2 u_2
     Commit1::<E> {
-        coms: vec![Com1::<E>::linear_map(&xvar) + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r1) + vec_to_col_vec(&key.u)[1][0].scalar_mul(&r2)],
+        coms: vec![Com1::<E>::linear_map(&xvar) + key.u.x * r1 + key.u.y * r2],
         rand: vec![vec![r1, r2]]
     }
 }
@@ -82,8 +82,9 @@ where
     E: PairingEngine,
     CR: Rng + CryptoRng
 {
-    
+
     // R is a random scalar m x 2 matrix
+    //
     let m = xvars.len();
     let mut R: Matrix<E::Fr> = Vec::with_capacity(m);
     for _ in 0..m {
@@ -112,7 +113,7 @@ where
 
     // c := i_1'(x) + r u_1
     Commit1::<E> {
-        coms: vec![Com1::<E>::scalar_linear_map(scalar_xvar, key) + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r)],
+        coms: vec![Com1::<E>::scalar_linear_map(scalar_xvar, key) + key.u.x * r],
         rand: vec![vec![ r ]]
     }
 }
@@ -132,7 +133,7 @@ where
     let slin_x: Matrix<Com1<E>> = vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(scalar_xvars, key));
     let ru: Matrix<Com1<E>> = vec_to_col_vec(
         &col_vec_to_vec(&r).into_iter().map( |sca| {
-            vec_to_col_vec(&key.u)[0][0].scalar_mul(&sca)
+            key.u.x * sca
         }).collect::<Vec<Com1<E>>>()
     );
 
@@ -155,7 +156,7 @@ where
 
     // d := i_2(y) + s_1 v_1 + s_2 v_2
     Commit2::<E> {
-        coms: vec![Com2::<E>::linear_map(&yvar) + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s1) + vec_to_col_vec(&key.v)[1][0].scalar_mul(&s2)],
+        coms: vec![Com2::<E>::linear_map(&yvar) + key.v.x * s1 + key.v.y * s2],
         rand: vec![vec![ s1, s2 ]]
     }
 }
@@ -196,7 +197,7 @@ where
 
     // d := i_2'(y) + s v_1
     Commit2::<E> {
-        coms: vec![Com2::<E>::scalar_linear_map(scalar_yvar, key) + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s)],
+        coms: vec![Com2::<E>::scalar_linear_map(scalar_yvar, key) + key.v.x * s],
         rand: vec![vec![ s ]]
     }
 }
@@ -216,7 +217,7 @@ where
     let slin_y: Matrix<Com2<E>> = vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(scalar_yvars, key));
     let sv: Matrix<Com2<E>> = vec_to_col_vec(
         &col_vec_to_vec(&s).into_iter().map( |sca| {
-            vec_to_col_vec(&key.v)[0][0].scalar_mul(&sca)
+            key.v.x * sca
         }).collect::<Vec<Com2<E>>>()
     );
 

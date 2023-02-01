@@ -185,7 +185,7 @@ mod tests {
 
         let equ: MSMEG1<F> = MSMEG1::<F> {
             a_consts: DVector::from_column_slice(&[crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()]),
-            b_consts: DVector::from_column_slice(&[rand(&mut rng)]),
+            b_consts: DVector::from_column_slice(&[Fr::rand(&mut rng)]),
             gamma: DMatrix::from_element(1, 1, Fr::rand(&mut rng)),
             target: crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()
         };
