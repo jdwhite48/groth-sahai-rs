@@ -1,51 +1,44 @@
-//! Commit from scalar field [`Fr`](ark_ec::PairingEngine::Fr) or bilinear group `G1, G2`
+//! Commit from scalar field [`Fr`](ark_ec::Pairing::Fr) or bilinear group `G1, G2`
 //! into the Groth-Sahai commitment group `B1, B2` for the SXDH instantiation.
 #![allow(non_snake_case)]
 
-use ark_ec::PairingEngine;
-use ark_std::{
-    UniformRand,
-    rand::{CryptoRng, Rng},
-    fmt::Debug
-};
+use ark_ec::pairing::Pairing;
+use ark_std::{fmt::Debug, rand::Rng, UniformRand};
 
 use crate::data_structures::*;
 use crate::generator::*;
 
-pub trait Commit:
-    Eq
-    + Debug
-{
+pub trait Commit: Eq + Debug {
     /// Append together two lists of commits to obtain single list of commits.
     fn append(&mut self, other: &mut Self);
 }
 
 /// Contains both the commitment's values (as [`Com1`](crate::data_structures::Com1)) and its randomness.
 #[derive(Clone, Debug)]
-pub struct Commit1<E: PairingEngine> {
+pub struct Commit1<E: Pairing> {
     pub coms: Vec<Com1<E>>,
-    pub(super) rand: Matrix<E::Fr>
+    pub(super) rand: Matrix<E::ScalarField>,
 }
 /// Contains both the commitment's values (as [`Com2`](crate::data_structures::Com2)) and its randomness.
 #[derive(Clone, Debug)]
-pub struct Commit2<E: PairingEngine> {
+pub struct Commit2<E: Pairing> {
     pub coms: Vec<Com2<E>>,
-    pub(super) rand: Matrix<E::Fr>
+    pub(super) rand: Matrix<E::ScalarField>,
 }
 
 macro_rules! impl_com {
     ($( $commit:ident ),*) => {
         $(
-            impl<E: PairingEngine> PartialEq for $commit<E> {
+            impl<E: Pairing> PartialEq for $commit<E> {
 
                 #[inline]
                 fn eq(&self, other: &Self) -> bool {
                     self.coms == other.coms && self.rand == other.rand
                 }
             }
-            impl<E: PairingEngine> Eq for $commit<E> {}
+            impl<E: Pairing> Eq for $commit<E> {}
 
-            impl<E: PairingEngine> Commit for $commit<E> {
+            impl<E: Pairing> Commit for $commit<E> {
                 fn append(&mut self, other: &mut Self) {
                     // One row of random values per committed value
                     assert_eq!(self.coms.len(), self.rand.len());
@@ -61,33 +54,36 @@ macro_rules! impl_com {
 }
 impl_com!(Commit1, Commit2);
 
-/// Commit a single [`G1`](ark_ec::PairingEngine::G1Affine) element to [`B1`](crate::data_structures::Com1).
+/// Commit a single [`G1`](ark_ec::Pairing::G1Affine) element to [`B1`](crate::data_structures::Com1).
 pub fn commit_G1<CR, E>(xvar: &E::G1Affine, key: &CRS<E>, rng: &mut CR) -> Commit1<E>
 where
-    E: PairingEngine,
-    CR: Rng + CryptoRng
+    E: Pairing,
+    CR: Rng,
 {
-    let (r1, r2) = (E::Fr::rand(rng), E::Fr::rand(rng));
+    let (r1, r2) = (E::ScalarField::rand(rng), E::ScalarField::rand(rng));
 
     // c := i_1(x) + r_1 u_1 + r_2 u_2
     Commit1::<E> {
-        coms: vec![Com1::<E>::linear_map(&xvar) + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r1) + vec_to_col_vec(&key.u)[1][0].scalar_mul(&r2)],
-        rand: vec![vec![r1, r2]]
+        coms: vec![
+            Com1::<E>::linear_map(&xvar)
+                + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r1)
+                + vec_to_col_vec(&key.u)[1][0].scalar_mul(&r2),
+        ],
+        rand: vec![vec![r1, r2]],
     }
 }
 
-/// Commit all [`G1`](ark_ec::PairingEngine::G1Affine) elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
+/// Commit all [`G1`](ark_ec::Pairing::G1Affine) elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
 pub fn batch_commit_G1<CR, E>(xvars: &Vec<E::G1Affine>, key: &CRS<E>, rng: &mut CR) -> Commit1<E>
 where
-    E: PairingEngine,
-    CR: Rng + CryptoRng
+    E: Pairing,
+    CR: Rng,
 {
-    
     // R is a random scalar m x 2 matrix
     let m = xvars.len();
-    let mut R: Matrix<E::Fr> = Vec::with_capacity(m);
+    let mut R: Matrix<E::ScalarField> = Vec::with_capacity(m);
     for _ in 0..m {
-        R.push(vec![E::Fr::rand(rng), E::Fr::rand(rng)]);
+        R.push(vec![E::ScalarField::rand(rng), E::ScalarField::rand(rng)]);
     }
 
     // i_1(X) = [ (O, X_1), ..., (O, X_m) ] (m x 1 matrix)
@@ -98,42 +94,55 @@ where
 
     Commit1::<E> {
         coms: col_vec_to_vec(&coms),
-        rand: R
+        rand: R,
     }
 }
 
-/// Commit a single [scalar field](ark_ec::PairingEngine::Fr) element to [`B1`](crate::data_structures::Com1).
-pub fn commit_scalar_to_B1<CR, E>(scalar_xvar: &E::Fr, key: &CRS<E>, rng: &mut CR) -> Commit1<E>
+/// Commit a single [scalar field](ark_ec::Pairing::Fr) element to [`B1`](crate::data_structures::Com1).
+pub fn commit_scalar_to_B1<CR, E>(
+    scalar_xvar: &E::ScalarField,
+    key: &CRS<E>,
+    rng: &mut CR,
+) -> Commit1<E>
 where
-    E: PairingEngine,
-    CR: Rng + CryptoRng
+    E: Pairing,
+    CR: Rng,
 {
-    let r: E::Fr = E::Fr::rand(rng);
+    let r: E::ScalarField = E::ScalarField::rand(rng);
 
     // c := i_1'(x) + r u_1
     Commit1::<E> {
-        coms: vec![Com1::<E>::scalar_linear_map(scalar_xvar, key) + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r)],
-        rand: vec![vec![ r ]]
+        coms: vec![
+            Com1::<E>::scalar_linear_map(scalar_xvar, key)
+                + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r),
+        ],
+        rand: vec![vec![r]],
     }
 }
 
-/// Commit all [scalar field](ark_ec::PairingEngine::Fr) elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
-pub fn batch_commit_scalar_to_B1<CR, E>(scalar_xvars: &Vec<E::Fr>, key: &CRS<E>, rng: &mut CR) -> Commit1<E>
+/// Commit all [scalar field](ark_ec::Pairing::Fr) elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
+pub fn batch_commit_scalar_to_B1<CR, E>(
+    scalar_xvars: &Vec<E::ScalarField>,
+    key: &CRS<E>,
+    rng: &mut CR,
+) -> Commit1<E>
 where
-    E: PairingEngine,
-    CR: Rng + CryptoRng
+    E: Pairing,
+    CR: Rng,
 {
     let mprime = scalar_xvars.len();
-    let mut r: Matrix<E::Fr> = Vec::with_capacity(mprime);
+    let mut r: Matrix<E::ScalarField> = Vec::with_capacity(mprime);
     for _ in 0..mprime {
-        r.push(vec![ E::Fr::rand(rng) ]);
+        r.push(vec![E::ScalarField::rand(rng)]);
     }
 
-    let slin_x: Matrix<Com1<E>> = vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(scalar_xvars, key));
+    let slin_x: Matrix<Com1<E>> =
+        vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(scalar_xvars, key));
     let ru: Matrix<Com1<E>> = vec_to_col_vec(
-        &col_vec_to_vec(&r).into_iter().map( |sca| {
-            vec_to_col_vec(&key.u)[0][0].scalar_mul(&sca)
-        }).collect::<Vec<Com1<E>>>()
+        &col_vec_to_vec(&r)
+            .into_iter()
+            .map(|sca| vec_to_col_vec(&key.u)[0][0].scalar_mul(&sca))
+            .collect::<Vec<Com1<E>>>(),
     );
 
     // c := i_1'(x) + r u_1 (mprime x 1 matrix)
@@ -141,37 +150,40 @@ where
 
     Commit1::<E> {
         coms: col_vec_to_vec(&coms),
-        rand: r
+        rand: r,
     }
 }
 
-/// Commit a single [`G2`](ark_ec::PairingEngine::G2Affine) element to [`B2`](crate::data_structures::Com2).
+/// Commit a single [`G2`](ark_ec::Pairing::G2Affine) element to [`B2`](crate::data_structures::Com2).
 pub fn commit_G2<CR, E>(yvar: &E::G2Affine, key: &CRS<E>, rng: &mut CR) -> Commit2<E>
 where
-    E: PairingEngine,
-    CR: Rng + CryptoRng
+    E: Pairing,
+    CR: Rng,
 {
-    let (s1, s2) = (E::Fr::rand(rng), E::Fr::rand(rng));
+    let (s1, s2) = (E::ScalarField::rand(rng), E::ScalarField::rand(rng));
 
     // d := i_2(y) + s_1 v_1 + s_2 v_2
     Commit2::<E> {
-        coms: vec![Com2::<E>::linear_map(&yvar) + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s1) + vec_to_col_vec(&key.v)[1][0].scalar_mul(&s2)],
-        rand: vec![vec![ s1, s2 ]]
+        coms: vec![
+            Com2::<E>::linear_map(&yvar)
+                + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s1)
+                + vec_to_col_vec(&key.v)[1][0].scalar_mul(&s2),
+        ],
+        rand: vec![vec![s1, s2]],
     }
 }
 
-/// Commit all [`G2`](ark_ec::PairingEngine::G2Affine) elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
+/// Commit all [`G2`](ark_ec::Pairing::G2Affine) elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
 pub fn batch_commit_G2<CR, E>(yvars: &Vec<E::G2Affine>, key: &CRS<E>, rng: &mut CR) -> Commit2<E>
 where
-    E: PairingEngine,
-    CR: Rng + CryptoRng
+    E: Pairing,
+    CR: Rng,
 {
-
     // S is a random scalar n x 2 matrix
     let n = yvars.len();
-    let mut S: Matrix<E::Fr> = Vec::with_capacity(n);
+    let mut S: Matrix<E::ScalarField> = Vec::with_capacity(n);
     for _ in 0..n {
-        S.push(vec![E::Fr::rand(rng), E::Fr::rand(rng)]);
+        S.push(vec![E::ScalarField::rand(rng), E::ScalarField::rand(rng)]);
     }
 
     // i_2(Y) = [ (O, Y_1), ..., (O, Y_m) ] (n x 1 matrix)
@@ -182,42 +194,55 @@ where
 
     Commit2::<E> {
         coms: col_vec_to_vec(&coms),
-        rand: S
+        rand: S,
     }
 }
 
-/// Commit a single [scalar field](ark_ec::PairingEngine::Fr) element to [`B2`](crate::data_structures::Com2).
-pub fn commit_scalar_to_B2<CR, E>(scalar_yvar: &E::Fr, key: &CRS<E>, rng: &mut CR) -> Commit2<E>
+/// Commit a single [scalar field](ark_ec::Pairing::Fr) element to [`B2`](crate::data_structures::Com2).
+pub fn commit_scalar_to_B2<CR, E>(
+    scalar_yvar: &E::ScalarField,
+    key: &CRS<E>,
+    rng: &mut CR,
+) -> Commit2<E>
 where
-    E: PairingEngine,
-    CR: Rng + CryptoRng
+    E: Pairing,
+    CR: Rng,
 {
-    let s: E::Fr = E::Fr::rand(rng);
+    let s: E::ScalarField = E::ScalarField::rand(rng);
 
     // d := i_2'(y) + s v_1
     Commit2::<E> {
-        coms: vec![Com2::<E>::scalar_linear_map(scalar_yvar, key) + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s)],
-        rand: vec![vec![ s ]]
+        coms: vec![
+            Com2::<E>::scalar_linear_map(scalar_yvar, key)
+                + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s),
+        ],
+        rand: vec![vec![s]],
     }
 }
 
-/// Commit all [scalar field](ark_ec::PairingEngine::Fr) elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
-pub fn batch_commit_scalar_to_B2<CR, E>(scalar_yvars: &Vec<E::Fr>, key: &CRS<E>, rng: &mut CR) -> Commit2<E>
+/// Commit all [scalar field](ark_ec::Pairing::Fr) elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
+pub fn batch_commit_scalar_to_B2<CR, E>(
+    scalar_yvars: &Vec<E::ScalarField>,
+    key: &CRS<E>,
+    rng: &mut CR,
+) -> Commit2<E>
 where
-    E: PairingEngine,
-    CR: Rng + CryptoRng
+    E: Pairing,
+    CR: Rng,
 {
     let nprime = scalar_yvars.len();
-    let mut s: Matrix<E::Fr> = Vec::with_capacity(nprime);
+    let mut s: Matrix<E::ScalarField> = Vec::with_capacity(nprime);
     for _ in 0..nprime {
-        s.push(vec![ E::Fr::rand(rng) ]);
+        s.push(vec![E::ScalarField::rand(rng)]);
     }
 
-    let slin_y: Matrix<Com2<E>> = vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(scalar_yvars, key));
+    let slin_y: Matrix<Com2<E>> =
+        vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(scalar_yvars, key));
     let sv: Matrix<Com2<E>> = vec_to_col_vec(
-        &col_vec_to_vec(&s).into_iter().map( |sca| {
-            vec_to_col_vec(&key.v)[0][0].scalar_mul(&sca)
-        }).collect::<Vec<Com2<E>>>()
+        &col_vec_to_vec(&s)
+            .into_iter()
+            .map(|sca| vec_to_col_vec(&key.v)[0][0].scalar_mul(&sca))
+            .collect::<Vec<Com2<E>>>(),
     );
 
     // d := i_2'(y) + s v_1 (nprime x 1 matrix)
@@ -225,7 +250,7 @@ where
 
     Commit2::<E> {
         coms: col_vec_to_vec(&coms),
-        rand: s
+        rand: s,
     }
 }
 
@@ -233,36 +258,37 @@ where
 mod tests {
     #![allow(non_snake_case)]
 
-    use ark_bls12_381::{Bls12_381 as F};
-    use ark_ec::PairingEngine;
-    use ark_ec::{AffineCurve, ProjectiveCurve};
-    use ark_ff::{One, field_new};
+    use std::ops::Mul;
+    use std::str::FromStr;
+
+    use ark_bls12_381::Bls12_381 as F;
+    use ark_ec::CurveGroup;
+    use ark_ff::One;
     use ark_std::test_rng;
 
     use super::*;
 
-    type G1Affine = <F as PairingEngine>::G1Affine;
-    type G2Affine = <F as PairingEngine>::G2Affine;
-    type Fr = <F as PairingEngine>::Fr;
+    type G1Affine = <F as Pairing>::G1Affine;
+    type G2Affine = <F as Pairing>::G2Affine;
+    type Fr = <F as Pairing>::ScalarField;
 
     // Uses an affine group generator to produce an affine group element represented by the numeric string.
     macro_rules! affine_group_new {
         ($gen:expr, $strnum:tt) => {
-            $gen.mul(field_new!(Fr, $strnum)).into_affine()
-        }
+            $gen.mul(Fr::from_str($strnum).unwrap()).into_affine()
+        };
     }
 
     // Uses an affine group generator to produce a projective group element represented by the numeric string.
     #[allow(unused_macros)]
     macro_rules! projective_group_new {
         ($gen:expr, $strnum:tt) => {
-            $gen.mul(field_new!(Fr, $strnum))
-        }
+            $gen.mul(Fr::from_str($strnum).unwrap())
+        };
     }
 
     #[test]
     fn test_commit_append_com1() {
-
         std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
         let mut rng = test_rng();
 
@@ -274,25 +300,37 @@ mod tests {
 
         // Create a fake commit value
         let mut com1 = Commit1::<F> {
-            coms: vec![Com1::<F>( crs.g1_gen.mul(r11).into_affine(), crs.g1_gen.mul(r12).into_affine() )],
-            rand: vec![vec![r11, r12]]
+            coms: vec![Com1::<F>(
+                crs.g1_gen.mul(r11).into_affine(),
+                crs.g1_gen.mul(r12).into_affine(),
+            )],
+            rand: vec![vec![r11, r12]],
         };
         let mut com2 = Commit1::<F> {
-            coms: vec![Com1::<F>( crs.g1_gen.mul(r21).into_affine(), crs.g1_gen.mul(r22).into_affine() )],
-            rand: vec![vec![r21, r22]]
+            coms: vec![Com1::<F>(
+                crs.g1_gen.mul(r21).into_affine(),
+                crs.g1_gen.mul(r22).into_affine(),
+            )],
+            rand: vec![vec![r21, r22]],
         };
 
         // Append should append each of the internal vectors
         let com1_exp = Commit1::<F> {
             coms: vec![
-                Com1::<F>( crs.g1_gen.mul(r11).into_affine(), crs.g1_gen.mul(r12).into_affine() ),
-                Com1::<F>( crs.g1_gen.mul(r21).into_affine(), crs.g1_gen.mul(r22).into_affine() )
+                Com1::<F>(
+                    crs.g1_gen.mul(r11).into_affine(),
+                    crs.g1_gen.mul(r12).into_affine(),
+                ),
+                Com1::<F>(
+                    crs.g1_gen.mul(r21).into_affine(),
+                    crs.g1_gen.mul(r22).into_affine(),
+                ),
             ],
-            rand: vec![vec![r11, r12], vec![r21, r22]]
+            rand: vec![vec![r11, r12], vec![r21, r22]],
         };
         let com2_exp = Commit1::<F> {
             coms: vec![],
-            rand: vec![]
+            rand: vec![],
         };
 
         com1.append(&mut com2);
@@ -302,7 +340,6 @@ mod tests {
 
     #[test]
     fn test_commit_append_com2() {
-
         std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
         let mut rng = test_rng();
 
@@ -314,25 +351,37 @@ mod tests {
 
         // Create a fake commit value
         let mut com1 = Commit2::<F> {
-            coms: vec![Com2::<F>( crs.g2_gen.mul(r11).into_affine(), crs.g2_gen.mul(r12).into_affine() )],
-            rand: vec![vec![r11, r12]]
+            coms: vec![Com2::<F>(
+                crs.g2_gen.mul(r11).into_affine(),
+                crs.g2_gen.mul(r12).into_affine(),
+            )],
+            rand: vec![vec![r11, r12]],
         };
         let mut com2 = Commit2::<F> {
-            coms: vec![Com2::<F>( crs.g2_gen.mul(r21).into_affine(), crs.g2_gen.mul(r22).into_affine() )],
-            rand: vec![vec![r21, r22]]
+            coms: vec![Com2::<F>(
+                crs.g2_gen.mul(r21).into_affine(),
+                crs.g2_gen.mul(r22).into_affine(),
+            )],
+            rand: vec![vec![r21, r22]],
         };
 
         // Append should append each of the internal vectors
         let com1_exp = Commit2::<F> {
             coms: vec![
-                Com2::<F>( crs.g2_gen.mul(r11).into_affine(), crs.g2_gen.mul(r12).into_affine() ),
-                Com2::<F>( crs.g2_gen.mul(r21).into_affine(), crs.g2_gen.mul(r22).into_affine() )
+                Com2::<F>(
+                    crs.g2_gen.mul(r11).into_affine(),
+                    crs.g2_gen.mul(r12).into_affine(),
+                ),
+                Com2::<F>(
+                    crs.g2_gen.mul(r21).into_affine(),
+                    crs.g2_gen.mul(r22).into_affine(),
+                ),
             ],
-            rand: vec![vec![r11, r12], vec![r21, r22]]
+            rand: vec![vec![r11, r12], vec![r21, r22]],
         };
         let com2_exp = Commit2::<F> {
             coms: vec![],
-            rand: vec![]
+            rand: vec![],
         };
 
         com1.append(&mut com2);
@@ -342,7 +391,6 @@ mod tests {
 
     #[test]
     fn test_commit_G1_batching() {
-
         std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
         let mut rng = test_rng();
         let mut rng2 = test_rng();
@@ -370,7 +418,6 @@ mod tests {
 
     #[test]
     fn test_commit_G2_batching() {
-
         std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
         let mut rng = test_rng();
         let mut rng2 = test_rng();
@@ -399,7 +446,6 @@ mod tests {
 
     #[test]
     fn test_commit_scalar_B1_batching() {
-
         std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
         let mut rng = test_rng();
         let mut rng2 = test_rng();
@@ -409,8 +455,8 @@ mod tests {
 
         let scalar_xvars: Vec<Fr> = vec![
             Fr::one(),
-            field_new!(Fr, "2"),
-            field_new!(Fr, "3"),
+            Fr::from_str("2").unwrap(),
+            Fr::from_str("3").unwrap(),
         ];
         let mut exp: Commit1<F> = commit_scalar_to_B1(&scalar_xvars[0], &crs, &mut rng);
         exp.append(&mut commit_scalar_to_B1(&scalar_xvars[1], &crs, &mut rng));
@@ -428,7 +474,6 @@ mod tests {
 
     #[test]
     fn test_commit_scalar_B2_batching() {
-
         std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
         let mut rng = test_rng();
         let mut rng2 = test_rng();
@@ -438,8 +483,8 @@ mod tests {
 
         let scalar_yvars: Vec<Fr> = vec![
             Fr::one(),
-            field_new!(Fr, "2"),
-            field_new!(Fr, "3"),
+            Fr::from_str("2").unwrap(),
+            Fr::from_str("3").unwrap(),
         ];
         let mut exp: Commit2<F> = commit_scalar_to_B2(&scalar_yvars[0], &crs, &mut rng);
         exp.append(&mut commit_scalar_to_B2(&scalar_yvars[1], &crs, &mut rng));

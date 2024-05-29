@@ -13,46 +13,44 @@
 
 use crate::data_structures::*;
 
-use ark_std::rand::{CryptoRng, Rng};
-use ark_ff::{Zero, UniformRand};
-use ark_ec::{AffineCurve, ProjectiveCurve, PairingEngine};
+use ark_ec::{pairing::Pairing, CurveGroup};
+use ark_ff::{UniformRand, Zero};
+use ark_std::{ops::Mul, rand::Rng};
 
 /// An abstract trait for denoting how to generate a CRS
-pub trait AbstractCrs<E: PairingEngine> {
-
+pub trait AbstractCrs<E: Pairing> {
     /// Generates the keys `u` for committing `G1` and `Fr` to
     /// [`B1`](crate::data_structures::B1) and `v` for committing `G2` and `Fr` to
     /// [`B2`](crate::data_structures::B2).
-    fn generate_crs<R>(rng: &mut R) -> Self where R: Rng + CryptoRng;
+    fn generate_crs<R>(rng: &mut R) -> Self
+    where
+        R: Rng;
 }
 
 /// Contains the commitment keys and bilinear group generators
-pub struct CRS<E: PairingEngine>
-{
+pub struct CRS<E: Pairing> {
     pub u: Vec<Com1<E>>,
     pub v: Vec<Com2<E>>,
     pub g1_gen: E::G1Affine,
     pub g2_gen: E::G2Affine,
-    pub gt_gen: E::Fqk,
+    pub gt_gen: E::TargetField,
 }
 
-impl<E: PairingEngine> CRS<E> {
-
+impl<E: Pairing> CRS<E> {
     // Returns intermediate "second" values that are used to construct un-blinded (i.e. binding) committment keys
     #[inline(always)]
     #[allow(unused_variables)]
     fn prepare_real_binding_key(
-        g1_gen: E::G1Projective,
-        g2_gen: E::G2Projective,
-        q1: E::G1Projective,
-        t1: E::Fr,
-        q2: E::G2Projective,
-        t2: E::Fr,
-    ) -> (E::G1Projective, E::G2Projective)
-    {
+        g1_gen: E::G1,
+        g2_gen: E::G2,
+        q1: E::G1,
+        t1: E::ScalarField,
+        q2: E::G2,
+        t2: E::ScalarField,
+    ) -> (E::G1, E::G2) {
         // NOTE: v1 and v2 should be the only difference between a blinding and a hiding key
-        let v1 = q1.into_affine().mul(t1) - E::G1Projective::zero();
-        let v2 = q2.into_affine().mul(t2) - E::G2Projective::zero();
+        let v1 = q1.mul(t1) - E::G1::zero();
+        let v2 = q2.mul(t2) - E::G2::zero();
         (v1, v2)
     }
 
@@ -60,43 +58,40 @@ impl<E: PairingEngine> CRS<E> {
     #[inline(always)]
     #[allow(dead_code)]
     fn prepare_simulated_hinding_key(
-        g1_gen: E::G1Projective,
-        g2_gen: E::G2Projective,
-        q1: E::G1Projective,
-        t1: E::Fr,
-        q2: E::G2Projective,
-        t2: E::Fr,
-    ) -> (E::G1Projective, E::G2Projective)
-    {
+        g1_gen: E::G1,
+        g2_gen: E::G2,
+        q1: E::G1,
+        t1: E::ScalarField,
+        q2: E::G2,
+        t2: E::ScalarField,
+    ) -> (E::G1, E::G2) {
         // NOTE: v1 and v2 should be the only difference between a blinding and a hiding key
-        let v1 = q1.into_affine().mul(t1) - g1_gen;
-        let v2 = q2.into_affine().mul(t2) - g2_gen;
+        let v1 = q1.mul(t1) - g1_gen;
+        let v2 = q2.mul(t2) - g2_gen;
         (v1, v2)
     }
 }
 
-impl<E: PairingEngine> AbstractCrs<E> for CRS<E> {
-
+impl<E: Pairing> AbstractCrs<E> for CRS<E> {
     fn generate_crs<R>(rng: &mut R) -> CRS<E>
     where
-        R: Rng + CryptoRng,
+        R: Rng,
     {
-
         // Generators for G1 and G2
-        let p1 = E::G1Projective::rand(rng);
-        let p2 = E::G2Projective::rand(rng);
+        let p1 = E::G1::rand(rng);
+        let p2 = E::G2::rand(rng);
 
         // Scalar intermediate values
-        let a1 = E::Fr::rand(rng);
-        let a2 = E::Fr::rand(rng);
-        let t1 = E::Fr::rand(rng);
-        let t2 = E::Fr::rand(rng);
+        let a1 = E::ScalarField::rand(rng);
+        let a2 = E::ScalarField::rand(rng);
+        let t1 = E::ScalarField::rand(rng);
+        let t2 = E::ScalarField::rand(rng);
 
         // Projective intermediate values
-        let q1 = p1.into_affine().mul(a1);
-        let q2 = p2.into_affine().mul(a2);
-        let u1 = p1.into_affine().mul(t1);
-        let u2 = p2.into_affine().mul(t2);
+        let q1 = p1.mul(a1);
+        let q2 = p2.mul(a2);
+        let u1 = p1.mul(t1);
+        let u2 = p2.mul(t2);
 
         let (v1, v2) = Self::prepare_real_binding_key(p1, p2, q1, t1, q2, t2);
 
@@ -113,48 +108,44 @@ impl<E: PairingEngine> AbstractCrs<E> for CRS<E> {
             v: vec![u21, u22],
             g1_gen: p1.into_affine(),
             g2_gen: p2.into_affine(),
-            gt_gen: E::pairing::<E::G1Affine, E::G2Affine>(p1.into_affine(), p2.into_affine())
+            gt_gen: E::pairing(p1.into_affine(), p2.into_affine()).0,
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use ark_bls12_381::{Bls12_381 as F};
-    use ark_ff::{Zero, One};
-    use ark_ec::PairingEngine;
+    use ark_bls12_381::Bls12_381 as F;
+    use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+    use ark_ff::{One, Zero};
     use ark_std::test_rng;
 
     use super::*;
 
-    type G1Projective = <F as PairingEngine>::G1Projective;
-    type G1Affine = <F as PairingEngine>::G1Affine;
-    type G2Projective = <F as PairingEngine>::G2Projective;
-    type G2Affine = <F as PairingEngine>::G2Affine;
-    type GT = <F as PairingEngine>::Fqk;
-    type Fr = <F as PairingEngine>::Fr;
+    type G1Projective = <F as Pairing>::G1;
+    type G1Affine = <F as Pairing>::G1Affine;
+    type G2Projective = <F as Pairing>::G2;
+    type G2Affine = <F as Pairing>::G2Affine;
+    type GT = <F as Pairing>::TargetField;
+    type Fr = <F as Pairing>::ScalarField;
 
     #[test]
     fn test_valid_generators() {
-
         let mut rng = test_rng();
 
         let crs = CRS::<F>::generate_crs(&mut rng);
 
         // Generator for GT is e(g1,g2)
-        assert_eq!(crs.gt_gen, F::pairing::<G1Affine, G2Affine>(crs.g1_gen, crs.g2_gen));
+        assert_eq!(crs.gt_gen, F::pairing(crs.g1_gen, crs.g2_gen).0);
         // Non-degeneracy of bilinear pairing will hold
         assert_ne!(crs.g1_gen, G1Affine::zero());
         assert_ne!(crs.g2_gen, G2Affine::zero());
         assert_ne!(crs.gt_gen, GT::one());
     }
 
-
     #[allow(non_snake_case)]
     #[test]
     fn test_valid_binding_CRS() {
-
         std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
         let mut rng = test_rng();
         let mut rng2 = test_rng();
@@ -168,8 +159,8 @@ mod tests {
         let a2 = Fr::rand(&mut rng2);
         let t1 = Fr::rand(&mut rng2);
         let t2 = Fr::rand(&mut rng2);
-        let q1 = p1.into_affine().mul(a1);
-        let q2 = p2.into_affine().mul(a2);
+        let q1 = p1.mul(a1);
+        let q2 = p2.mul(a2);
         let (v1, v2) = CRS::<F>::prepare_real_binding_key(p1, p2, q1, t1, q2, t2);
 
         // Generated commitment keys are non-trivial
@@ -185,4 +176,3 @@ mod tests {
         assert_eq!(crs.v[1].1, v2.into_affine());
     }
 }
-
