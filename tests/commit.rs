@@ -1,5 +1,4 @@
 #![allow(non_snake_case)]
-extern crate groth_sahai;
 
 #[cfg(test)]
 mod SXDH_commit_tests {

@@ -1,8 +1,6 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 
-extern crate groth_sahai;
-
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use std::time::Duration;

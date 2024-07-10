@@ -2,7 +2,7 @@
 name = "groth-sahai"
 version = "0.1.0"
 authors = ["Jacob White <white570@purdue.edu>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "An implementation of the Groth-Sahai zero-knowledge proof system in Rust"
 repository = "https://github.com/jdwhite88/groth-sahai-rs"
