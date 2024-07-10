@@ -11,7 +11,7 @@
 //!    1) Perfect soundness string (i.e. perfectly binding), or
 //!    2) Composable witness-indistinguishability string (i.e. perfectly hiding)
 
-use crate::data_structures::*;
+use crate::data_structures::{Com1, Com2};
 
 use ark_ec::{
     pairing::{Pairing, PairingOutput},

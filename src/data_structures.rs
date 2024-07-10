@@ -31,7 +31,7 @@ use ark_std::{
 };
 use rayon::prelude::*;
 
-use crate::generator::*;
+use crate::generator::CRS;
 
 pub trait Mat<Elem: Clone>: Eq + Clone + Debug {
     type Other;
@@ -963,17 +963,24 @@ impl<F: Field> Mat<F> for Matrix<F> {
 
 #[cfg(test)]
 mod tests {
-
     #![allow(non_snake_case)]
+
+    use super::*;
+
     mod SXDH_com_group {
 
         use ark_bls12_381::Bls12_381 as F;
-        use ark_ec::{AffineRepr, CurveGroup};
+        use ark_ec::{
+            pairing::{Pairing, PairingOutput},
+            AffineRepr, CurveGroup,
+        };
         use ark_ff::UniformRand;
         use ark_std::ops::Mul;
         use ark_std::test_rng;
 
-        use crate::data_structures::*;
+        use crate::AbstractCrs;
+
+        use super::*;
 
         type G1Affine = <F as Pairing>::G1Affine;
         type G1Projective = <F as Pairing>::G1;
@@ -1609,7 +1616,7 @@ mod tests {
         use ark_std::str::FromStr;
         use ark_std::test_rng;
 
-        use crate::data_structures::*;
+        use super::*;
 
         type G1Affine = <F as Pairing>::G1Affine;
         type G1Projective = <F as Pairing>::G1;

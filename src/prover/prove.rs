@@ -16,10 +16,13 @@ use ark_ec::pairing::Pairing;
 use ark_ec::pairing::PairingOutput;
 use ark_std::{rand::Rng, UniformRand};
 
-use super::commit::*;
-use crate::data_structures::*;
-use crate::generator::*;
-use crate::statement::*;
+use super::commit::{
+    batch_commit_G1, batch_commit_G2, batch_commit_scalar_to_B1, batch_commit_scalar_to_B2,
+    Commit1, Commit2,
+};
+use crate::data_structures::{col_vec_to_vec, vec_to_col_vec, Com1, Com2, Mat, Matrix, B1, B2};
+use crate::generator::CRS;
+use crate::statement::{EquType, QuadEqu, MSMEG1, MSMEG2, PPE};
 
 /// A collection  of attributes containing prover functionality for an [`Equation`](crate::statement::Equation).
 pub trait Provable<E: Pairing, A1, A2, AT> {
@@ -493,6 +496,8 @@ mod tests {
     use ark_ff::{One, UniformRand, Zero};
     use ark_std::ops::Mul;
     use ark_std::test_rng;
+
+    use crate::AbstractCrs;
 
     use super::*;
 

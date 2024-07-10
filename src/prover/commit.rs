@@ -5,8 +5,8 @@
 use ark_ec::pairing::Pairing;
 use ark_std::{fmt::Debug, rand::Rng, UniformRand};
 
-use crate::data_structures::*;
-use crate::generator::*;
+use crate::data_structures::{col_vec_to_vec, vec_to_col_vec, Com1, Com2, Mat, Matrix, B1, B2};
+use crate::generator::CRS;
 
 pub trait Commit: Eq + Debug {
     /// Append together two lists of commits to obtain single list of commits.
@@ -265,6 +265,8 @@ mod tests {
     use ark_ec::CurveGroup;
     use ark_ff::One;
     use ark_std::test_rng;
+
+    use crate::AbstractCrs;
 
     use super::*;
 
