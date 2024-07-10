@@ -662,10 +662,10 @@ macro_rules! impl_base_commit_mats {
                 }
 
                 fn right_mul(&self, rhs: &Matrix<Self::Other>, is_parallel: bool) -> Self {
-                    if self.len() == 0 || self[0].len() == 0 {
+                    if self.is_empty() || self[0].is_empty() {
                         return vec![];
                     }
-                    if rhs.len() == 0 || rhs[0].len() == 0 {
+                    if rhs.is_empty() || rhs[0].is_empty() {
                         return vec![];
                     }
 
@@ -729,10 +729,10 @@ macro_rules! impl_base_commit_mats {
                 }
 
                 fn left_mul(&self, lhs: &Matrix<Self::Other>, is_parallel: bool) -> Self {
-                    if lhs.len() == 0 || lhs[0].len() == 0 {
+                    if lhs.is_empty() || lhs[0].is_empty() {
                         return vec![];
                     }
-                    if self.len() == 0 || self[0].len() == 0 {
+                    if self.is_empty() || self[0].is_empty() {
                         return vec![];
                     }
 
@@ -871,10 +871,10 @@ impl<F: Field> Mat<F> for Matrix<F> {
     }
 
     fn right_mul(&self, rhs: &Matrix<Self::Other>, is_parallel: bool) -> Self {
-        if self.len() == 0 || self[0].len() == 0 {
+        if self.is_empty() || self[0].is_empty() {
             return vec![];
         }
-        if rhs.len() == 0 || rhs[0].len() == 0 {
+        if rhs.is_empty() || rhs[0].is_empty() {
             return vec![];
         }
 
@@ -928,10 +928,10 @@ impl<F: Field> Mat<F> for Matrix<F> {
     }
 
     fn left_mul(&self, lhs: &Matrix<Self::Other>, is_parallel: bool) -> Self {
-        if lhs.len() == 0 || lhs[0].len() == 0 {
+        if lhs.is_empty() || lhs[0].is_empty() {
             return vec![];
         }
-        if self.len() == 0 || self[0].len() == 0 {
+        if self.is_empty() || self[0].is_empty() {
             return vec![];
         }
 
