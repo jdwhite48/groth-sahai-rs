@@ -77,8 +77,7 @@ impl<E: Pairing> Verifiable<E> for MSMEG1<E> {
 
         let com1_pf2 = ComT::<E>::pairing_sum(&crs.u, &com_proof.equ_proofs[0].pi);
 
-        let pf1_com2 =
-            ComT::<E>::pairing(com_proof.equ_proofs[0].theta[0].clone(), crs.v[0].clone());
+        let pf1_com2 = ComT::<E>::pairing(com_proof.equ_proofs[0].theta[0], crs.v[0]);
 
         let lhs: ComT<E> = lin_a_com_y + com_x_lin_b + com_x_stmt_com_y;
         let rhs: ComT<E> = lin_t + com1_pf2 + pf1_com2;
@@ -110,7 +109,7 @@ impl<E: Pairing> Verifiable<E> for MSMEG2<E> {
 
         let lin_t = ComT::<E>::linear_map_MSMEG2(&self.target, &crs);
 
-        let com1_pf2 = ComT::<E>::pairing(crs.u[0].clone(), com_proof.equ_proofs[0].pi[0].clone());
+        let com1_pf2 = ComT::<E>::pairing(crs.u[0], com_proof.equ_proofs[0].pi[0]);
 
         let pf1_com2 = ComT::<E>::pairing_sum(&com_proof.equ_proofs[0].theta, &crs.v);
 
@@ -144,10 +143,9 @@ impl<E: Pairing> Verifiable<E> for QuadEqu<E> {
 
         let lin_t = ComT::<E>::linear_map_quad(&self.target, &crs);
 
-        let com1_pf2 = ComT::<E>::pairing(crs.u[0].clone(), com_proof.equ_proofs[0].pi[0].clone());
+        let com1_pf2 = ComT::<E>::pairing(crs.u[0], com_proof.equ_proofs[0].pi[0]);
 
-        let pf1_com2 =
-            ComT::<E>::pairing(com_proof.equ_proofs[0].theta[0].clone(), crs.v[0].clone());
+        let pf1_com2 = ComT::<E>::pairing(com_proof.equ_proofs[0].theta[0], crs.v[0]);
 
         let lhs: ComT<E> = lin_a_com_y + com_x_lin_b + com_x_stmt_com_y;
         let rhs: ComT<E> = lin_t + com1_pf2 + pf1_com2;

@@ -318,7 +318,7 @@ impl<E: Pairing> B1<E> for Com1<E> {
 
     #[inline]
     fn linear_map(x: &E::G1Affine) -> Self {
-        Self(E::G1Affine::zero(), x.clone())
+        Self(E::G1Affine::zero(), *x)
     }
 
     #[inline]
@@ -344,11 +344,11 @@ impl<E: Pairing> B1<E> for Com1<E> {
     }
 
     fn scalar_mul(&self, rhs: &E::ScalarField) -> Self {
-        let mut s1p = self.0.clone().into_group();
-        let mut s2p = self.1.clone().into_group();
+        let mut s1p = self.0.into_group();
+        let mut s2p = self.1.into_group();
         s1p *= *rhs;
         s2p *= *rhs;
-        Self(s1p.into_affine().clone(), s2p.into_affine().clone())
+        Self(s1p.into_affine(), s2p.into_affine())
     }
 }
 
@@ -363,7 +363,7 @@ impl<E: Pairing> B2<E> for Com2<E> {
 
     #[inline]
     fn linear_map(y: &E::G2Affine) -> Self {
-        Self(E::G2Affine::zero(), y.clone())
+        Self(E::G2Affine::zero(), *y)
     }
 
     #[inline]
@@ -389,11 +389,11 @@ impl<E: Pairing> B2<E> for Com2<E> {
     }
 
     fn scalar_mul(&self, rhs: &E::ScalarField) -> Self {
-        let mut s1p = self.0.clone().into_group();
-        let mut s2p = self.1.clone().into_group();
+        let mut s1p = self.0.into_group();
+        let mut s2p = self.1.into_group();
         s1p *= *rhs;
         s2p *= *rhs;
-        Self(s1p.into_affine().clone(), s2p.into_affine().clone())
+        Self(s1p.into_affine(), s2p.into_affine())
     }
 }
 
@@ -502,10 +502,10 @@ impl<E: Pairing> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
     fn pairing(x: Com1<E>, y: Com2<E>) -> ComT<E> {
         ComT::<E>(
-            E::pairing(x.0.clone(), y.0.clone()).0,
-            E::pairing(x.0.clone(), y.1.clone()).0,
-            E::pairing(x.1.clone(), y.0.clone()).0,
-            E::pairing(x.1.clone(), y.1.clone()).0,
+            E::pairing(x.0, y.0).0,
+            E::pairing(x.0, y.1).0,
+            E::pairing(x.1, y.0).0,
+            E::pairing(x.1, y.1).0,
         )
     }
 
@@ -530,7 +530,7 @@ impl<E: Pairing> BT<E, Com1<E>, Com2<E>> for ComT<E> {
             E::TargetField::one(),
             E::TargetField::one(),
             E::TargetField::one(),
-            z.clone(),
+            *z,
         )
     }
 
@@ -826,7 +826,7 @@ impl<F: Field> Mat<F> for Matrix<F> {
         for i in 0..m {
             add.push(Vec::with_capacity(n));
             for j in 0..n {
-                add[i].push(self[i][j].clone() + other[i][j].clone());
+                add[i].push(self[i][j] + other[i][j]);
             }
         }
         add
@@ -864,7 +864,7 @@ impl<F: Field> Mat<F> for Matrix<F> {
         for row in self {
             for i in 0..row.len() {
                 // Push rows onto columns
-                trans[i].push(row[i].clone());
+                trans[i].push(row[i]);
             }
         }
         trans
@@ -1335,7 +1335,7 @@ mod tests {
                 G2Projective::rand(&mut rng).into_affine(),
                 G2Projective::rand(&mut rng).into_affine(),
             );
-            let bt = ComT::pairing(b1.clone(), b2.clone());
+            let bt = ComT::pairing(b1, b2);
 
             assert_eq!(bt.0, Fqk::one());
             assert_eq!(bt.1, Fqk::one());
@@ -1352,7 +1352,7 @@ mod tests {
                 G1Projective::rand(&mut rng).into_affine(),
             );
             let b2 = Com2::<F>(G2Affine::zero(), G2Affine::zero());
-            let bt = ComT::pairing(b1.clone(), b2.clone());
+            let bt = ComT::pairing(b1, b2);
 
             assert_eq!(bt.0, Fqk::one());
             assert_eq!(bt.1, Fqk::one());
@@ -1366,12 +1366,12 @@ mod tests {
             let mut rng = test_rng();
             let b1 = Com1::<F>(G1Affine::zero(), G1Projective::rand(&mut rng).into_affine());
             let b2 = Com2::<F>(G2Affine::zero(), G2Projective::rand(&mut rng).into_affine());
-            let bt = ComT::pairing(b1.clone(), b2.clone());
+            let bt = ComT::pairing(b1, b2);
 
             assert_eq!(bt.0, Fqk::one());
             assert_eq!(bt.1, Fqk::one());
             assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, F::pairing(b1.1.clone(), b2.1.clone()).0);
+            assert_eq!(bt.3, F::pairing(b1.1, b2.1).0);
         }
 
         #[allow(non_snake_case)]
@@ -1386,12 +1386,12 @@ mod tests {
                 G2Projective::rand(&mut rng).into_affine(),
                 G2Projective::rand(&mut rng).into_affine(),
             );
-            let bt = ComT::pairing(b1.clone(), b2.clone());
+            let bt = ComT::pairing(b1, b2);
 
-            assert_eq!(bt.0, F::pairing(b1.0.clone(), b2.0.clone()).0);
-            assert_eq!(bt.1, F::pairing(b1.0.clone(), b2.1.clone()).0);
-            assert_eq!(bt.2, F::pairing(b1.1.clone(), b2.0.clone()).0);
-            assert_eq!(bt.3, F::pairing(b1.1.clone(), b2.1.clone()).0);
+            assert_eq!(bt.0, F::pairing(b1.0, b2.0).0);
+            assert_eq!(bt.1, F::pairing(b1.0, b2.1).0);
+            assert_eq!(bt.2, F::pairing(b1.1, b2.0).0);
+            assert_eq!(bt.3, F::pairing(b1.1, b2.1).0);
         }
 
         #[allow(non_snake_case)]
@@ -1435,7 +1435,7 @@ mod tests {
                 G2Projective::rand(&mut rng).into_affine(),
                 G2Projective::rand(&mut rng).into_affine(),
             );
-            let bt = ComT::pairing(b1.clone(), b2.clone());
+            let bt = ComT::pairing(b1, b2);
 
             // B1 and B2 can be representing as 2-dim column vectors
             assert_eq!(b1.as_col_vec(), vec![vec![b1.0], vec![b1.1]]);
@@ -1458,12 +1458,12 @@ mod tests {
             ];
             let bt_vec = vec![
                 vec![
-                    F::pairing(b1_vec[0][0].clone(), b2_vec[0][0].clone()).0,
-                    F::pairing(b1_vec[0][0].clone(), b2_vec[1][0].clone()).0,
+                    F::pairing(b1_vec[0][0], b2_vec[0][0]).0,
+                    F::pairing(b1_vec[0][0], b2_vec[1][0]).0,
                 ],
                 vec![
-                    F::pairing(b1_vec[1][0].clone(), b2_vec[0][0].clone()).0,
-                    F::pairing(b1_vec[1][0].clone(), b2_vec[1][0].clone()).0,
+                    F::pairing(b1_vec[1][0], b2_vec[0][0]).0,
+                    F::pairing(b1_vec[1][0], b2_vec[1][0]).0,
                 ],
             ];
 
@@ -1533,7 +1533,7 @@ mod tests {
             let mut rng = test_rng();
             let a1 = G1Projective::rand(&mut rng).into_affine();
             let a2 = G2Projective::rand(&mut rng).into_affine();
-            let at = F::pairing(a1.clone(), a2.clone()).0;
+            let at = F::pairing(a1, a2).0;
             let b1 = Com1::<F>::linear_map(&a1);
             let b2 = Com2::<F>::linear_map(&a2);
             let bt = ComT::<F>::linear_map_PPE(&at);
@@ -1545,7 +1545,7 @@ mod tests {
             assert_eq!(bt.0, Fqk::one());
             assert_eq!(bt.1, Fqk::one());
             assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, F::pairing(a1.clone(), a2.clone()).0);
+            assert_eq!(bt.3, F::pairing(a1, a2).0);
         }
 
         // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
@@ -1567,11 +1567,8 @@ mod tests {
             assert_eq!(b2.1, (key.v[1].1 + key.g2_gen).mul(a2));
             assert_eq!(bt.0, Fqk::one());
             assert_eq!(bt.1, Fqk::one());
-            assert_eq!(bt.2, F::pairing(at.clone(), key.v[1].0.clone()).0);
-            assert_eq!(
-                bt.3,
-                F::pairing(at.clone(), key.v[1].1.clone() + key.g2_gen.clone()).0
-            );
+            assert_eq!(bt.2, F::pairing(at, key.v[1].0).0);
+            assert_eq!(bt.3, F::pairing(at, key.v[1].1 + key.g2_gen).0);
         }
 
         // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
@@ -1592,12 +1589,9 @@ mod tests {
             assert_eq!(b2.0, G2Affine::zero());
             assert_eq!(b2.1, a2);
             assert_eq!(bt.0, Fqk::one());
-            assert_eq!(bt.1, F::pairing(key.u[1].0.clone(), at.clone()).0);
+            assert_eq!(bt.1, F::pairing(key.u[1].0, at).0);
             assert_eq!(bt.2, Fqk::one());
-            assert_eq!(
-                bt.3,
-                F::pairing(key.u[1].1.clone() + key.g1_gen.clone(), at.clone()).0
-            );
+            assert_eq!(bt.3, F::pairing(key.u[1].1 + key.g1_gen, at).0);
         }
 
         // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)

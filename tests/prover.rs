@@ -48,13 +48,9 @@ mod SXDH_prover_tests {
         // Gamma = [ 5, 0 ] (i.e. only e(X_1, Y_1)^5 term)
         let gamma: Matrix<Fr> = vec![vec![Fr::from_str("5").unwrap()], vec![Fr::zero()]];
         // Target -> all together (n.b. e(X_1, Y_1)^5 = e(X_1, 5 Y_1) = e(5 X_1, Y_1) by the properties of non-degenerate bilinear maps)
-        let target: Fqk = F::pairing(xvars[1].clone(), b_consts[1].clone()).0
-            * F::pairing(a_consts[0].clone(), yvars[0].clone()).0
-            * F::pairing(
-                xvars[0].clone(),
-                yvars[0].mul(gamma[0][0].clone()).into_affine(),
-            )
-            .0;
+        let target: Fqk = F::pairing(xvars[1], b_consts[1]).0
+            * F::pairing(a_consts[0], yvars[0]).0
+            * F::pairing(xvars[0], yvars[0].mul(gamma[0][0]).into_affine()).0;
         let equ: PPE<F> = PPE::<F> {
             a_consts,
             b_consts,
