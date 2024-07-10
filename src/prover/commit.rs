@@ -65,7 +65,7 @@ where
     // c := i_1(x) + r_1 u_1 + r_2 u_2
     Commit1::<E> {
         coms: vec![
-            Com1::<E>::linear_map(&xvar)
+            Com1::<E>::linear_map(xvar)
                 + vec_to_col_vec(&key.u)[0][0].scalar_mul(&r1)
                 + vec_to_col_vec(&key.u)[1][0].scalar_mul(&r2),
         ],
@@ -165,7 +165,7 @@ where
     // d := i_2(y) + s_1 v_1 + s_2 v_2
     Commit2::<E> {
         coms: vec![
-            Com2::<E>::linear_map(&yvar)
+            Com2::<E>::linear_map(yvar)
                 + vec_to_col_vec(&key.v)[0][0].scalar_mul(&s1)
                 + vec_to_col_vec(&key.v)[1][0].scalar_mul(&s2),
         ],

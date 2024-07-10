@@ -324,22 +324,22 @@ impl<E: Pairing> B1<E> for Com1<E> {
     #[inline]
     fn batch_linear_map(x_vec: &Vec<E::G1Affine>) -> Vec<Self> {
         x_vec
-            .into_iter()
-            .map(|elem| Self::linear_map(&elem))
+            .iter()
+            .map(|elem| Self::linear_map(elem))
             .collect::<Vec<Self>>()
     }
 
     #[inline]
     fn scalar_linear_map(x: &E::ScalarField, key: &CRS<E>) -> Self {
         // = xu, where u = u_2 + (O, P) is a commitment group element
-        (key.u[1] + Com1::<E>::linear_map(&key.g1_gen)).scalar_mul(&x)
+        (key.u[1] + Com1::<E>::linear_map(&key.g1_gen)).scalar_mul(x)
     }
 
     #[inline]
     fn batch_scalar_linear_map(x_vec: &Vec<E::ScalarField>, key: &CRS<E>) -> Vec<Self> {
         x_vec
-            .into_iter()
-            .map(|elem| Self::scalar_linear_map(&elem, key))
+            .iter()
+            .map(|elem| Self::scalar_linear_map(elem, key))
             .collect::<Vec<Self>>()
     }
 
@@ -369,22 +369,22 @@ impl<E: Pairing> B2<E> for Com2<E> {
     #[inline]
     fn batch_linear_map(y_vec: &Vec<E::G2Affine>) -> Vec<Self> {
         y_vec
-            .into_iter()
-            .map(|elem| Self::linear_map(&elem))
+            .iter()
+            .map(|elem| Self::linear_map(elem))
             .collect::<Vec<Self>>()
     }
 
     #[inline]
     fn scalar_linear_map(y: &E::ScalarField, key: &CRS<E>) -> Self {
         // = yv, where v = v_2 + (O, P) is a commitment group element
-        (key.v[1] + Com2::<E>::linear_map(&key.g2_gen)).scalar_mul(&y)
+        (key.v[1] + Com2::<E>::linear_map(&key.g2_gen)).scalar_mul(y)
     }
 
     #[inline]
     fn batch_scalar_linear_map(y_vec: &Vec<E::ScalarField>, key: &CRS<E>) -> Vec<Self> {
         y_vec
-            .into_iter()
-            .map(|elem| Self::scalar_linear_map(&elem, key))
+            .iter()
+            .map(|elem| Self::scalar_linear_map(elem, key))
             .collect::<Vec<Self>>()
     }
 

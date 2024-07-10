@@ -65,7 +65,7 @@ impl<E: Pairing> Verifiable<E> for MSMEG1<E> {
 
         let com_x_lin_b = ComT::<E>::pairing_sum(
             &com_proof.xcoms.coms,
-            &Com2::<E>::batch_scalar_linear_map(&self.b_consts, &crs),
+            &Com2::<E>::batch_scalar_linear_map(&self.b_consts, crs),
         );
 
         let stmt_com_y: Matrix<Com2<E>> =
@@ -73,7 +73,7 @@ impl<E: Pairing> Verifiable<E> for MSMEG1<E> {
         let com_x_stmt_com_y =
             ComT::<E>::pairing_sum(&com_proof.xcoms.coms, &col_vec_to_vec(&stmt_com_y));
 
-        let lin_t = ComT::<E>::linear_map_MSMEG1(&self.target, &crs);
+        let lin_t = ComT::<E>::linear_map_MSMEG1(&self.target, crs);
 
         let com1_pf2 = ComT::<E>::pairing_sum(&crs.u, &com_proof.equ_proofs[0].pi);
 
@@ -93,7 +93,7 @@ impl<E: Pairing> Verifiable<E> for MSMEG2<E> {
         let is_parallel = true;
 
         let lin_a_com_y = ComT::<E>::pairing_sum(
-            &Com1::<E>::batch_scalar_linear_map(&self.a_consts, &crs),
+            &Com1::<E>::batch_scalar_linear_map(&self.a_consts, crs),
             &com_proof.ycoms.coms,
         );
 
@@ -107,7 +107,7 @@ impl<E: Pairing> Verifiable<E> for MSMEG2<E> {
         let com_x_stmt_com_y =
             ComT::<E>::pairing_sum(&com_proof.xcoms.coms, &col_vec_to_vec(&stmt_com_y));
 
-        let lin_t = ComT::<E>::linear_map_MSMEG2(&self.target, &crs);
+        let lin_t = ComT::<E>::linear_map_MSMEG2(&self.target, crs);
 
         let com1_pf2 = ComT::<E>::pairing(crs.u[0], com_proof.equ_proofs[0].pi[0]);
 
@@ -127,13 +127,13 @@ impl<E: Pairing> Verifiable<E> for QuadEqu<E> {
         let is_parallel = true;
 
         let lin_a_com_y = ComT::<E>::pairing_sum(
-            &Com1::<E>::batch_scalar_linear_map(&self.a_consts, &crs),
+            &Com1::<E>::batch_scalar_linear_map(&self.a_consts, crs),
             &com_proof.ycoms.coms,
         );
 
         let com_x_lin_b = ComT::<E>::pairing_sum(
             &com_proof.xcoms.coms,
-            &Com2::<E>::batch_scalar_linear_map(&self.b_consts, &crs),
+            &Com2::<E>::batch_scalar_linear_map(&self.b_consts, crs),
         );
 
         let stmt_com_y: Matrix<Com2<E>> =
@@ -141,7 +141,7 @@ impl<E: Pairing> Verifiable<E> for QuadEqu<E> {
         let com_x_stmt_com_y =
             ComT::<E>::pairing_sum(&com_proof.xcoms.coms, &col_vec_to_vec(&stmt_com_y));
 
-        let lin_t = ComT::<E>::linear_map_quad(&self.target, &crs);
+        let lin_t = ComT::<E>::linear_map_quad(&self.target, crs);
 
         let com1_pf2 = ComT::<E>::pairing(crs.u[0], com_proof.equ_proofs[0].pi[0]);
 

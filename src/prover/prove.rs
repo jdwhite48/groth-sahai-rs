@@ -74,8 +74,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, E::TargetField> for PPE<E
     where
         CR: Rng,
     {
-        let xcoms: Commit1<E> = batch_commit_G1(&xvars, crs, rng);
-        let ycoms: Commit2<E> = batch_commit_G2(&yvars, crs, rng);
+        let xcoms: Commit1<E> = batch_commit_G1(xvars, crs, rng);
+        let ycoms: Commit2<E> = batch_commit_G2(yvars, crs, rng);
 
         CProof::<E> {
             xcoms: xcoms.clone(),
@@ -127,8 +127,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, E::TargetField> for PPE<E
         // (2 x n) field matrix
         let x_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel);
         // (2 x 1) Com2 matrix
-        let x_rand_stmt_lin_y = vec_to_col_vec(&Com2::<E>::batch_linear_map(&yvars))
-            .left_mul(&x_rand_stmt, is_parallel);
+        let x_rand_stmt_lin_y =
+            vec_to_col_vec(&Com2::<E>::batch_linear_map(yvars)).left_mul(&x_rand_stmt, is_parallel);
 
         // (2 x 2) field matrix
         let pf_rand_stmt = x_rand_trans
@@ -148,8 +148,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, E::TargetField> for PPE<E
         // (2 x m) field matrix
         let y_rand_stmt = y_rand_trans.right_mul(&self.gamma.transpose(), is_parallel);
         // (2 x 1) Com1 matrix
-        let y_rand_stmt_lin_x = vec_to_col_vec(&Com1::<E>::batch_linear_map(&xvars))
-            .left_mul(&y_rand_stmt, is_parallel);
+        let y_rand_stmt_lin_x =
+            vec_to_col_vec(&Com1::<E>::batch_linear_map(xvars)).left_mul(&y_rand_stmt, is_parallel);
 
         // (2 x 1) Com1 matrix
         let pf_rand_com1 = vec_to_col_vec(&crs.u).left_mul(&pf_rand, is_parallel);
@@ -177,8 +177,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::ScalarField, E::G1Affine> for MSMEG
     where
         CR: Rng,
     {
-        let xcoms: Commit1<E> = batch_commit_G1(&xvars, crs, rng);
-        let scalar_ycoms: Commit2<E> = batch_commit_scalar_to_B2(&scalar_yvars, crs, rng);
+        let xcoms: Commit1<E> = batch_commit_G1(xvars, crs, rng);
+        let scalar_ycoms: Commit2<E> = batch_commit_scalar_to_B2(scalar_yvars, crs, rng);
 
         CProof::<E> {
             xcoms: xcoms.clone(),
@@ -222,15 +222,14 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::ScalarField, E::G1Affine> for MSMEG
             vec![vec![E::ScalarField::rand(rng), E::ScalarField::rand(rng)]];
 
         // (2 x 1) Com2 matrix
-        let x_rand_lin_b =
-            vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(&self.b_consts, &crs))
-                .left_mul(&x_rand_trans, is_parallel);
+        let x_rand_lin_b = vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(&self.b_consts, crs))
+            .left_mul(&x_rand_trans, is_parallel);
 
         // (2 x n) field matrix
         let x_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel);
         // (2 x 1) Com2 matrix
         let x_rand_stmt_lin_y =
-            vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(&scalar_yvars, &crs))
+            vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(scalar_yvars, crs))
                 .left_mul(&x_rand_stmt, is_parallel);
 
         // (2 x 1) field matrix
@@ -252,8 +251,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::ScalarField, E::G1Affine> for MSMEG
         // (1 x m) field matrix
         let y_rand_stmt = y_rand_trans.right_mul(&self.gamma.transpose(), is_parallel);
         // (1 x 1) Com1 matrix
-        let y_rand_stmt_lin_x = vec_to_col_vec(&Com1::<E>::batch_linear_map(&xvars))
-            .left_mul(&y_rand_stmt, is_parallel);
+        let y_rand_stmt_lin_x =
+            vec_to_col_vec(&Com1::<E>::batch_linear_map(xvars)).left_mul(&y_rand_stmt, is_parallel);
 
         // (1 x 1) Com1 matrix
         let pf_rand_com1 = vec_to_col_vec(&crs.u).left_mul(&pf_rand, is_parallel);
@@ -281,8 +280,8 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::G2Affine, E::G2Affine> for MSMEG
     where
         CR: Rng,
     {
-        let scalar_xcoms: Commit1<E> = batch_commit_scalar_to_B1(&scalar_xvars, crs, rng);
-        let ycoms: Commit2<E> = batch_commit_G2(&yvars, crs, rng);
+        let scalar_xcoms: Commit1<E> = batch_commit_scalar_to_B1(scalar_xvars, crs, rng);
+        let ycoms: Commit2<E> = batch_commit_G2(yvars, crs, rng);
 
         CProof::<E> {
             xcoms: scalar_xcoms.clone(),
@@ -334,8 +333,8 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::G2Affine, E::G2Affine> for MSMEG
         // (1 x n) field matrix
         let x_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel);
         // (1 x 1) Com2 matrix
-        let x_rand_stmt_lin_y = vec_to_col_vec(&Com2::<E>::batch_linear_map(&yvars))
-            .left_mul(&x_rand_stmt, is_parallel);
+        let x_rand_stmt_lin_y =
+            vec_to_col_vec(&Com2::<E>::batch_linear_map(yvars)).left_mul(&x_rand_stmt, is_parallel);
 
         // (1 x 2) field matrix
         let pf_rand_stmt = x_rand_trans
@@ -349,15 +348,14 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::G2Affine, E::G2Affine> for MSMEG
         assert_eq!(pi.len(), 1);
 
         // (2 x 1) Com1 matrix
-        let y_rand_lin_a =
-            vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(&self.a_consts, &crs))
-                .left_mul(&y_rand_trans, is_parallel);
+        let y_rand_lin_a = vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(&self.a_consts, crs))
+            .left_mul(&y_rand_trans, is_parallel);
 
         // (2 x m') field matrix
         let y_rand_stmt = y_rand_trans.right_mul(&self.gamma.transpose(), is_parallel);
         // (2 x 1) Com1 matrix
         let y_rand_stmt_lin_x =
-            vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(&scalar_xvars, &crs))
+            vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(scalar_xvars, crs))
                 .left_mul(&y_rand_stmt, is_parallel);
 
         // (2 x 1) Com1 matrix
@@ -387,8 +385,8 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::ScalarField, E::ScalarField> for
     where
         CR: Rng,
     {
-        let scalar_xcoms: Commit1<E> = batch_commit_scalar_to_B1(&scalar_xvars, crs, rng);
-        let scalar_ycoms: Commit2<E> = batch_commit_scalar_to_B2(&scalar_yvars, crs, rng);
+        let scalar_xcoms: Commit1<E> = batch_commit_scalar_to_B1(scalar_xvars, crs, rng);
+        let scalar_ycoms: Commit2<E> = batch_commit_scalar_to_B2(scalar_yvars, crs, rng);
 
         CProof::<E> {
             xcoms: scalar_xcoms.clone(),
@@ -436,15 +434,14 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::ScalarField, E::ScalarField> for
         // field element T, in GS parlance
         let pf_rand: Matrix<E::ScalarField> = vec![vec![E::ScalarField::rand(rng)]];
 
-        let x_rand_lin_b =
-            vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(&self.b_consts, &crs))
-                .left_mul(&x_rand_trans, is_parallel);
+        let x_rand_lin_b = vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(&self.b_consts, crs))
+            .left_mul(&x_rand_trans, is_parallel);
 
         // (1 x n') field matrix
         let x_rand_stmt = x_rand_trans.right_mul(&self.gamma, is_parallel);
         // (1 x 1) Com2 matrix
         let x_rand_stmt_lin_y =
-            vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(&scalar_yvars, &crs))
+            vec_to_col_vec(&Com2::<E>::batch_scalar_linear_map(scalar_yvars, crs))
                 .left_mul(&x_rand_stmt, is_parallel);
 
         // (1 x 2) field matrix
@@ -460,15 +457,14 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::ScalarField, E::ScalarField> for
         assert_eq!(pi.len(), 1);
 
         // (1 x 1) Com1 matrix
-        let y_rand_lin_a =
-            vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(&self.a_consts, &crs))
-                .left_mul(&y_rand_trans, is_parallel);
+        let y_rand_lin_a = vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(&self.a_consts, crs))
+            .left_mul(&y_rand_trans, is_parallel);
 
         // (1 x m') field matrix
         let y_rand_stmt = y_rand_trans.right_mul(&self.gamma.transpose(), is_parallel);
         // (1 x 1) Com1 matrix
         let y_rand_stmt_lin_x =
-            vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(&scalar_xvars, &crs))
+            vec_to_col_vec(&Com1::<E>::batch_scalar_linear_map(scalar_xvars, crs))
                 .left_mul(&y_rand_stmt, is_parallel);
 
         // (1 x 1) Com1 matrix
