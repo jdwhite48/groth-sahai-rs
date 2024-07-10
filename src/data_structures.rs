@@ -513,7 +513,7 @@ impl<E: Pairing> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     fn pairing_sum(x_vec: &Vec<Com1<E>>, y_vec: &Vec<Com2<E>>) -> ComT<E> {
         assert_eq!(x_vec.len(), y_vec.len());
         let xy_vec = x_vec
-            .into_iter()
+            .iter()
             .zip(y_vec)
             .collect::<Vec<(&Com1<E>, &Com2<E>)>>();
 
