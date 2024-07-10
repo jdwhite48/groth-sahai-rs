@@ -6,7 +6,10 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use std::time::Duration;
 
 use ark_bls12_381::Bls12_381 as F;
-use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+use ark_ec::{
+    pairing::{Pairing, PairingOutput},
+    AffineRepr, CurveGroup,
+};
 use ark_ff::{One, UniformRand, Zero};
 use ark_std::ops::Mul;
 use ark_std::str::FromStr;
@@ -18,7 +21,7 @@ type G1Projective = <F as Pairing>::G1;
 type G1Affine = <F as Pairing>::G1Affine;
 //type G2Projective = <F as PairingEngine>::G2Projective;
 type G2Affine = <F as Pairing>::G2Affine;
-type Fqk = <F as Pairing>::TargetField;
+type GT = PairingOutput<F>;
 type Fr = <F as Pairing>::ScalarField;
 
 // Uses an affine group generator to produce an affine group element represented by the numeric
@@ -427,7 +430,7 @@ fn bench_small_PPE_proof(c: &mut Criterion) {
         ],
         gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
         // NOTE: dummy variable for this bench
-        target: Fqk::rand(&mut rng),
+        target: GT::rand(&mut rng),
     };
 
     c.bench_function("prove PPE equation with 2 G1 vars, 1 G2 var", |bench| {
@@ -473,7 +476,7 @@ fn bench_large_PPE_proof(c: &mut Criterion) {
         b_consts,
         gamma,
         // NOTE: dummy variable for this bench
-        target: Fqk::rand(&mut rng),
+        target: GT::rand(&mut rng),
     };
 
     c.bench_function(
@@ -505,7 +508,7 @@ fn bench_small_PPE_verify(c: &mut Criterion) {
         ],
         gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
         // NOTE: dummy variable for this bench
-        target: Fqk::rand(&mut rng),
+        target: GT::rand(&mut rng),
     };
 
     let proof: CProof<F> = equ.commit_and_prove(&xvars, &yvars, &crs, &mut rng);
@@ -551,7 +554,7 @@ fn bench_large_PPE_verify(c: &mut Criterion) {
         b_consts,
         gamma,
         // NOTE: dummy variable for this bench
-        target: Fqk::rand(&mut rng),
+        target: GT::rand(&mut rng),
     };
 
     let proof: CProof<F> = equ.commit_and_prove(&xvars, &yvars, &crs, &mut rng);

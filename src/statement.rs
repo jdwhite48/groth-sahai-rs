@@ -31,7 +31,7 @@
 //! of bilinear group arithmetic and pairings in order to form a valid Groth-Sahai statement.
 //! This API does not provide such functionality.
 
-use ark_ec::pairing::Pairing;
+use ark_ec::pairing::{Pairing, PairingOutput};
 
 use crate::data_structures::Matrix;
 use crate::prover::Provable;
@@ -69,11 +69,11 @@ pub struct PPE<E: Pairing> {
     pub a_consts: Vec<E::G1Affine>,
     pub b_consts: Vec<E::G2Affine>,
     pub gamma: Matrix<E::ScalarField>,
-    pub target: E::TargetField,
+    pub target: PairingOutput<E>,
 }
 
 impl<E: Pairing> Equ for PPE<E> {}
-impl<E: Pairing> Equation<E, E::G1Affine, E::G2Affine, E::TargetField> for PPE<E> {
+impl<E: Pairing> Equation<E, E::G1Affine, E::G2Affine, PairingOutput<E>> for PPE<E> {
     #[inline(always)]
     fn get_type(&self) -> EquType {
         EquType::PairingProduct
@@ -155,7 +155,7 @@ mod tests {
     use crate::generator::*;
 
     type Fr = <F as Pairing>::ScalarField;
-    type Fqk = <F as Pairing>::TargetField;
+    type GT = PairingOutput<F>;
 
     #[test]
     fn test_PPE_equation_type() {
@@ -166,7 +166,7 @@ mod tests {
             a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
             b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
             gamma: vec![vec![Fr::rand(&mut rng)]],
-            target: Fqk::rand(&mut rng),
+            target: GT::rand(&mut rng),
         };
 
         assert_eq!(equ.get_type(), EquType::PairingProduct);

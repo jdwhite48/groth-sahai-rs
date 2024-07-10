@@ -23,7 +23,7 @@ mod SXDH_commit_tests {
         let mut rng = test_rng();
         let a1 = G1Projective::rand(&mut rng).into_affine();
         let a2 = G2Projective::rand(&mut rng).into_affine();
-        let at = F::pairing(a1, a2).0;
+        let at = F::pairing(a1, a2);
         let b1 = Com1::<F>::linear_map(&a1);
         let b2 = Com2::<F>::linear_map(&a2);
 

@@ -4,7 +4,7 @@
 mod SXDH_prover_tests {
 
     use ark_bls12_381::Bls12_381 as F;
-    use ark_ec::pairing::Pairing;
+    use ark_ec::pairing::{Pairing, PairingOutput};
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_std::ops::Mul;
     use ark_std::str::FromStr;
@@ -19,7 +19,7 @@ mod SXDH_prover_tests {
     type G1Affine = <F as Pairing>::G1Affine;
     type G2Affine = <F as Pairing>::G2Affine;
     type Fr = <F as Pairing>::ScalarField;
-    type Fqk = <F as Pairing>::TargetField;
+    type GT = PairingOutput<F>;
 
     #[test]
     fn pairing_product_equation_verifies() {
@@ -47,9 +47,9 @@ mod SXDH_prover_tests {
         // Gamma = [ 5, 0 ] (i.e. only e(X_1, Y_1)^5 term)
         let gamma: Matrix<Fr> = vec![vec![Fr::from_str("5").unwrap()], vec![Fr::zero()]];
         // Target -> all together (n.b. e(X_1, Y_1)^5 = e(X_1, 5 Y_1) = e(5 X_1, Y_1) by the properties of non-degenerate bilinear maps)
-        let target: Fqk = F::pairing(xvars[1], b_consts[1]).0
-            * F::pairing(a_consts[0], yvars[0]).0
-            * F::pairing(xvars[0], yvars[0].mul(gamma[0][0]).into_affine()).0;
+        let target: GT = F::pairing(xvars[1], b_consts[1])
+            + F::pairing(a_consts[0], yvars[0])
+            + F::pairing(xvars[0], yvars[0].mul(gamma[0][0]).into_affine());
         let equ: PPE<F> = PPE::<F> {
             a_consts,
             b_consts,

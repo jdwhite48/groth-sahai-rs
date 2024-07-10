@@ -8,23 +8,21 @@
 //! implementing the commitment group using elements of the bilinear group over an elliptic curve.
 //! [`Com1`](crate::data_structures::Com1) and [`Com2`](crate::data_structures::Com2) are represented by 2 x 1 vectors of elements
 //! in the corresponding groups [`G1Affine`](ark_ec::Pairing::G1Affine) and [`G2Affine`](ark_ec::Pairing::G2Affine).
-//! [`ComT`](crate::data_structures::ComT) represents a 2 x 2 matrix of elements in [`Fqk`](ark_ec::Pairing::Fqk) (aka `GT`).
+//! [`ComT`](crate::data_structures::ComT) represents a 2 x 2 matrix of elements in [`GT`](ark_ec::PairingOutput).
 //!
 //! All of `Com1`, `Com2`, `ComT` are expressed as follows:
-//! * Addition in `Com1`, `Com2` is defined by entry-wise addition of elements in `G1Affine`, `G2Affine`:
-//!     * The equality of `Com1`, `Com2` is equality of all elements
-//!     * The zero element of `Com1`, `Com2` is the zero vector
-//!     * The negation of `Com1`, `Com2` is the additive inverse (i.e. negation) of all elements
-//!
-//! * Addition in `ComT` is defined by entry-wise multiplication of elements in `Fqk`:
-//!     * The equality of `ComT` is equality of all elements
-//!     * The zero element of `ComT` is the all-ones vector
-//!     * The negation of `ComT` is the multiplicative inverse (i.e. reciprocal) of all elements
+//! * Addition is defined by entry-wise addition of elements in `G1Affine`, `G2Affine`:
+//!     * The equality is equality of all elements
+//!     * The zero element is the zero vector
+//!     * The negation is the additive inverse (i.e. negation) of all elements
 //!
 //! The Groth-Sahai proof system uses matrices of commitment group elements in its computations as
 //! well.
 
-use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+use ark_ec::{
+    pairing::{Pairing, PairingOutput},
+    AffineRepr, CurveGroup,
+};
 use ark_ff::{Field, One, Zero};
 use ark_std::{
     fmt::Debug,
@@ -101,8 +99,8 @@ pub trait B2<E: Pairing>:
 }
 
 /// Provides linear maps and matrix conversions for the target of the GS commitment group, as well as the equipped pairing.
-pub trait BT<E: Pairing, C1: B1<E>, C2: B2<E>>: B<E> + From<Matrix<E::TargetField>> {
-    fn as_matrix(&self) -> Matrix<E::TargetField>;
+pub trait BT<E: Pairing, C1: B1<E>, C2: B2<E>>: B<E> + From<Matrix<PairingOutput<E>>> {
+    fn as_matrix(&self) -> Matrix<PairingOutput<E>>;
 
     /// The bilinear pairing over the GS commitment group (B1, B2, BT) is the tensor product.
     /// with respect to the bilinear pairing over the bilinear group (G1, G2, GT).
@@ -110,9 +108,9 @@ pub trait BT<E: Pairing, C1: B1<E>, C2: B2<E>>: B<E> + From<Matrix<E::TargetFiel
     /// The entry-wise sum of bilinear pairings over the GS commitment group.
     fn pairing_sum(x_vec: &[C1], y_vec: &[C2]) -> Self;
 
-    /// The linear map from GT to BT for pairing-product equations.
+    /// The linear map from GT to BT for pairing-sum equations.
     #[allow(non_snake_case)]
-    fn linear_map_PPE(z: &E::TargetField) -> Self;
+    fn linear_map_PPE(z: &PairingOutput<E>) -> Self;
     /// The linear map from G1 to BT for multi-scalar multiplication equations.
     #[allow(non_snake_case)]
     fn linear_map_MSMEG1(z: &E::G1Affine, key: &CRS<E>) -> Self;
@@ -136,10 +134,10 @@ pub struct Com2<E: Pairing>(pub E::G2Affine, pub E::G2Affine);
 /// Target [`BT`](crate::data_structures::BT) for the commitment group in the SXDH instantiation.
 #[derive(Copy, Clone, Debug)]
 pub struct ComT<E: Pairing>(
-    pub E::TargetField,
-    pub E::TargetField,
-    pub E::TargetField,
-    pub E::TargetField,
+    pub PairingOutput<E>,
+    pub PairingOutput<E>,
+    pub PairingOutput<E>,
+    pub PairingOutput<E>,
 );
 
 /// Collapse matrix into a single vector.
@@ -403,10 +401,10 @@ impl<E: Pairing> Add<ComT<E>> for ComT<E> {
     #[inline]
     fn add(self, other: Self) -> Self {
         Self(
-            self.0 * other.0,
-            self.1 * other.1,
-            self.2 * other.2,
-            self.3 * other.3,
+            self.0 + other.0,
+            self.1 + other.1,
+            self.2 + other.2,
+            self.3 + other.3,
         )
     }
 }
@@ -414,10 +412,10 @@ impl<E: Pairing> Zero for ComT<E> {
     #[inline]
     fn zero() -> Self {
         Self(
-            E::TargetField::one(),
-            E::TargetField::one(),
-            E::TargetField::one(),
-            E::TargetField::one(),
+            PairingOutput::zero(),
+            PairingOutput::zero(),
+            PairingOutput::zero(),
+            PairingOutput::zero(),
         )
     }
 
@@ -429,12 +427,10 @@ impl<E: Pairing> Zero for ComT<E> {
 impl<E: Pairing> AddAssign<ComT<E>> for ComT<E> {
     #[inline]
     fn add_assign(&mut self, other: Self) {
-        *self = Self(
-            self.0 * other.0,
-            self.1 * other.1,
-            self.2 * other.2,
-            self.3 * other.3,
-        );
+        self.0 += other.0;
+        self.1 += other.1;
+        self.2 += other.2;
+        self.3 += other.3;
     }
 }
 impl<E: Pairing> Neg for ComT<E> {
@@ -442,12 +438,7 @@ impl<E: Pairing> Neg for ComT<E> {
 
     #[inline]
     fn neg(self) -> Self::Output {
-        Self(
-            E::TargetField::one() / self.0,
-            E::TargetField::one() / self.1,
-            E::TargetField::one() / self.2,
-            E::TargetField::one() / self.3,
-        )
+        Self(-self.0, -self.1, -self.2, -self.3)
     }
 }
 impl<E: Pairing> Sub<ComT<E>> for ComT<E> {
@@ -456,26 +447,24 @@ impl<E: Pairing> Sub<ComT<E>> for ComT<E> {
     #[inline]
     fn sub(self, other: Self) -> Self {
         Self(
-            self.0 / other.0,
-            self.1 / other.1,
-            self.2 / other.2,
-            self.3 / other.3,
+            self.0 - other.0,
+            self.1 - other.1,
+            self.2 - other.2,
+            self.3 - other.3,
         )
     }
 }
 impl<E: Pairing> SubAssign<ComT<E>> for ComT<E> {
     #[inline]
     fn sub_assign(&mut self, other: Self) {
-        *self = Self(
-            self.0 / other.0,
-            self.1 / other.1,
-            self.2 / other.2,
-            self.3 / other.3,
-        );
+        self.0 -= other.0;
+        self.1 -= other.1;
+        self.2 -= other.2;
+        self.3 -= other.3;
     }
 }
-impl<E: Pairing> From<Matrix<E::TargetField>> for ComT<E> {
-    fn from(mat: Matrix<E::TargetField>) -> Self {
+impl<E: Pairing> From<Matrix<PairingOutput<E>>> for ComT<E> {
+    fn from(mat: Matrix<PairingOutput<E>>) -> Self {
         assert_eq!(mat.len(), 2);
         assert_eq!(mat[0].len(), 2);
         assert_eq!(mat[1].len(), 2);
@@ -493,10 +482,10 @@ impl<E: Pairing> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     #[inline]
     fn pairing(x: Com1<E>, y: Com2<E>) -> ComT<E> {
         ComT::<E>(
-            E::pairing(x.0, y.0).0,
-            E::pairing(x.0, y.1).0,
-            E::pairing(x.1, y.0).0,
-            E::pairing(x.1, y.1).0,
+            E::pairing(x.0, y.0),
+            E::pairing(x.0, y.1),
+            E::pairing(x.1, y.0),
+            E::pairing(x.1, y.1),
         )
     }
 
@@ -511,16 +500,16 @@ impl<E: Pairing> BT<E, Com1<E>, Com2<E>> for ComT<E> {
         xy_vec.into_iter().map(|(&x, &y)| Self::pairing(x, y)).sum()
     }
 
-    fn as_matrix(&self) -> Matrix<E::TargetField> {
+    fn as_matrix(&self) -> Matrix<PairingOutput<E>> {
         vec![vec![self.0, self.1], vec![self.2, self.3]]
     }
 
     #[inline]
-    fn linear_map_PPE(z: &E::TargetField) -> Self {
+    fn linear_map_PPE(z: &PairingOutput<E>) -> Self {
         Self(
-            E::TargetField::one(),
-            E::TargetField::one(),
-            E::TargetField::one(),
+            PairingOutput::zero(),
+            PairingOutput::zero(),
+            PairingOutput::zero(),
             *z,
         )
     }
@@ -990,7 +979,7 @@ mod tests {
         type G1Projective = <F as Pairing>::G1;
         type G2Affine = <F as Pairing>::G2Affine;
         type G2Projective = <F as Pairing>::G2;
-        type Fqk = <F as Pairing>::TargetField;
+        type GT = PairingOutput<F>;
         type Fr = <F as Pairing>::ScalarField;
 
         #[test]
@@ -1029,12 +1018,12 @@ mod tests {
         fn test_BT_add_zero() {
             let mut rng = test_rng();
             let a = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
-            let zero = ComT::<F>(Fqk::one(), Fqk::one(), Fqk::one(), Fqk::one());
+            let zero = ComT::<F>(GT::zero(), GT::zero(), GT::zero(), GT::zero());
             let asub = a + zero;
 
             assert_eq!(zero, ComT::<F>::zero());
@@ -1085,21 +1074,21 @@ mod tests {
         fn test_BT_add() {
             let mut rng = test_rng();
             let a = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
             let b = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
             let ab = a + b;
             let ba = b + a;
 
-            assert_eq!(ab, ComT::<F>(a.0 * b.0, a.1 * b.1, a.2 * b.2, a.3 * b.3));
+            assert_eq!(ab, ComT::<F>(a.0 + b.0, a.1 + b.1, a.2 + b.2, a.3 + b.3));
             assert_eq!(ab, ba);
         }
 
@@ -1154,22 +1143,22 @@ mod tests {
         fn test_BT_sum() {
             let mut rng = test_rng();
             let a = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
             let b = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
             let c = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
 
             let abc_vec = vec![a, b, c];
@@ -1211,10 +1200,10 @@ mod tests {
         fn test_BT_neg() {
             let mut rng = test_rng();
             let b = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
             let bneg = -b;
             let zero = b + bneg;
@@ -1265,21 +1254,21 @@ mod tests {
         fn test_BT_sub() {
             let mut rng = test_rng();
             let a = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
             let b = ComT::<F>(
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
-                Fqk::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
+                GT::rand(&mut rng),
             );
             let ab = a - b;
             let ba = b - a;
 
-            assert_eq!(ab, ComT::<F>(a.0 / b.0, a.1 / b.1, a.2 / b.2, a.3 / b.3));
+            assert_eq!(ab, ComT::<F>(a.0 - b.0, a.1 - b.1, a.2 - b.2, a.3 - b.3));
             assert_eq!(ab, -ba);
         }
 
@@ -1328,10 +1317,10 @@ mod tests {
             );
             let bt = ComT::pairing(b1, b2);
 
-            assert_eq!(bt.0, Fqk::one());
-            assert_eq!(bt.1, Fqk::one());
-            assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, Fqk::one());
+            assert_eq!(bt.0, GT::zero());
+            assert_eq!(bt.1, GT::zero());
+            assert_eq!(bt.2, GT::zero());
+            assert_eq!(bt.3, GT::zero());
         }
 
         #[allow(non_snake_case)]
@@ -1345,10 +1334,10 @@ mod tests {
             let b2 = Com2::<F>(G2Affine::zero(), G2Affine::zero());
             let bt = ComT::pairing(b1, b2);
 
-            assert_eq!(bt.0, Fqk::one());
-            assert_eq!(bt.1, Fqk::one());
-            assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, Fqk::one());
+            assert_eq!(bt.0, GT::zero());
+            assert_eq!(bt.1, GT::zero());
+            assert_eq!(bt.2, GT::zero());
+            assert_eq!(bt.3, GT::zero());
         }
 
         #[allow(non_snake_case)]
@@ -1359,10 +1348,10 @@ mod tests {
             let b2 = Com2::<F>(G2Affine::zero(), G2Projective::rand(&mut rng).into_affine());
             let bt = ComT::pairing(b1, b2);
 
-            assert_eq!(bt.0, Fqk::one());
-            assert_eq!(bt.1, Fqk::one());
-            assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, F::pairing(b1.1, b2.1).0);
+            assert_eq!(bt.0, GT::zero());
+            assert_eq!(bt.1, GT::zero());
+            assert_eq!(bt.2, GT::zero());
+            assert_eq!(bt.3, F::pairing(b1.1, b2.1));
         }
 
         #[allow(non_snake_case)]
@@ -1379,10 +1368,10 @@ mod tests {
             );
             let bt = ComT::pairing(b1, b2);
 
-            assert_eq!(bt.0, F::pairing(b1.0, b2.0).0);
-            assert_eq!(bt.1, F::pairing(b1.0, b2.1).0);
-            assert_eq!(bt.2, F::pairing(b1.1, b2.0).0);
-            assert_eq!(bt.3, F::pairing(b1.1, b2.1).0);
+            assert_eq!(bt.0, F::pairing(b1.0, b2.0));
+            assert_eq!(bt.1, F::pairing(b1.0, b2.1));
+            assert_eq!(bt.2, F::pairing(b1.1, b2.0));
+            assert_eq!(bt.3, F::pairing(b1.1, b2.1));
         }
 
         #[allow(non_snake_case)]
@@ -1449,12 +1438,12 @@ mod tests {
             ];
             let bt_vec = vec![
                 vec![
-                    F::pairing(b1_vec[0][0], b2_vec[0][0]).0,
-                    F::pairing(b1_vec[0][0], b2_vec[1][0]).0,
+                    F::pairing(b1_vec[0][0], b2_vec[0][0]),
+                    F::pairing(b1_vec[0][0], b2_vec[1][0]),
                 ],
                 vec![
-                    F::pairing(b1_vec[1][0], b2_vec[0][0]).0,
-                    F::pairing(b1_vec[1][0], b2_vec[1][0]).0,
+                    F::pairing(b1_vec[1][0], b2_vec[0][0]),
+                    F::pairing(b1_vec[1][0], b2_vec[1][0]),
                 ],
             ];
 
@@ -1524,7 +1513,7 @@ mod tests {
             let mut rng = test_rng();
             let a1 = G1Projective::rand(&mut rng).into_affine();
             let a2 = G2Projective::rand(&mut rng).into_affine();
-            let at = F::pairing(a1, a2).0;
+            let at = F::pairing(a1, a2);
             let b1 = Com1::<F>::linear_map(&a1);
             let b2 = Com2::<F>::linear_map(&a2);
             let bt = ComT::<F>::linear_map_PPE(&at);
@@ -1533,10 +1522,10 @@ mod tests {
             assert_eq!(b1.1, a1);
             assert_eq!(b2.0, G2Affine::zero());
             assert_eq!(b2.1, a2);
-            assert_eq!(bt.0, Fqk::one());
-            assert_eq!(bt.1, Fqk::one());
-            assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, F::pairing(a1, a2).0);
+            assert_eq!(bt.0, GT::zero());
+            assert_eq!(bt.1, GT::zero());
+            assert_eq!(bt.2, GT::zero());
+            assert_eq!(bt.3, F::pairing(a1, a2));
         }
 
         // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
@@ -1556,10 +1545,10 @@ mod tests {
             assert_eq!(b1.1, a1);
             assert_eq!(b2.0, key.v[1].0.mul(a2));
             assert_eq!(b2.1, (key.v[1].1 + key.g2_gen).mul(a2));
-            assert_eq!(bt.0, Fqk::one());
-            assert_eq!(bt.1, Fqk::one());
-            assert_eq!(bt.2, F::pairing(at, key.v[1].0).0);
-            assert_eq!(bt.3, F::pairing(at, key.v[1].1 + key.g2_gen).0);
+            assert_eq!(bt.0, GT::zero());
+            assert_eq!(bt.1, GT::zero());
+            assert_eq!(bt.2, F::pairing(at, key.v[1].0));
+            assert_eq!(bt.3, F::pairing(at, key.v[1].1 + key.g2_gen));
         }
 
         // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)
@@ -1579,10 +1568,10 @@ mod tests {
             assert_eq!(b1.1, (key.u[1].1 + key.g1_gen).mul(a1));
             assert_eq!(b2.0, G2Affine::zero());
             assert_eq!(b2.1, a2);
-            assert_eq!(bt.0, Fqk::one());
-            assert_eq!(bt.1, F::pairing(key.u[1].0, at).0);
-            assert_eq!(bt.2, Fqk::one());
-            assert_eq!(bt.3, F::pairing(key.u[1].1 + key.g1_gen, at).0);
+            assert_eq!(bt.0, GT::zero());
+            assert_eq!(bt.1, F::pairing(key.u[1].0, at));
+            assert_eq!(bt.2, GT::zero());
+            assert_eq!(bt.3, F::pairing(key.u[1].1 + key.g1_gen, at));
         }
 
         // Test that we're using the linear map that preserves witness-indistinguishability (see Ghadafi et al. 2010)

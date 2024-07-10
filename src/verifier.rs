@@ -1,6 +1,6 @@
 //! Contains the functionality for verifying the satisfiability of Groth-Sahai equations over bilinear groups.
 //!
-//! Verifying an equation's proof primarily involves addition in [`BT`](crate::data_structures::ComT) (equiv. multiplication in 4 [`GT`](ark_ec::Pairing::Fqk))
+//! Verifying an equation's proof primarily involves addition in [`BT`](crate::data_structures::ComT) (equiv. additions in 4 [`GT`](ark_ec::Pairing::GT))
 //! and pairings over elements in [`B1`](crate::data_structures::Com1) and [`B2`](crate::data_structures::Com2).
 //!
 //! See the [`prover`](crate::prover) and [`statement`](crate::statement) modules for more details about the structure of the equations and their proofs.

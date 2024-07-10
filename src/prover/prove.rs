@@ -13,6 +13,7 @@
 //! See the [`statement`](crate::statement) module for more details about the structure of the equations being proven about.
 
 use ark_ec::pairing::Pairing;
+use ark_ec::pairing::PairingOutput;
 use ark_std::{rand::Rng, UniformRand};
 
 use super::commit::*;
@@ -63,7 +64,7 @@ pub struct CProof<E: Pairing> {
     pub equ_proofs: Vec<EquProof<E>>,
 }
 
-impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, E::TargetField> for PPE<E> {
+impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, PairingOutput<E>> for PPE<E> {
     fn commit_and_prove<CR>(
         &self,
         xvars: &[E::G1Affine],
@@ -498,7 +499,7 @@ mod tests {
     type G1Affine = <F as Pairing>::G1Affine;
     type G2Affine = <F as Pairing>::G2Affine;
     type Fr = <F as Pairing>::ScalarField;
-    type Fqk = <F as Pairing>::TargetField;
+    type GT = PairingOutput<F>;
 
     #[test]
     fn test_PPE_proof_type() {
@@ -520,7 +521,7 @@ mod tests {
                 crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
             ],
             gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
-            target: Fqk::rand(&mut rng),
+            target: GT::rand(&mut rng),
         };
         let proof: EquProof<F> = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
 
@@ -546,7 +547,7 @@ mod tests {
                 crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
             ],
             gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
-            target: Fqk::rand(&mut rng),
+            target: GT::rand(&mut rng),
         };
 
         // Individually commit then prove
@@ -573,7 +574,7 @@ mod tests {
         for _ in 0..equ.b_consts.len() {
             let _ = Fr::rand(&mut rng2);
         }
-        let _ = Fqk::rand(&mut rng2);
+        let _ = GT::rand(&mut rng2);
 
         // Use the helper function to commit-and-prove in one step
         let cproof2 = equ.commit_and_prove(&xvars, &yvars, &crs, &mut rng2);

@@ -13,7 +13,10 @@
 
 use crate::data_structures::*;
 
-use ark_ec::{pairing::Pairing, CurveGroup};
+use ark_ec::{
+    pairing::{Pairing, PairingOutput},
+    CurveGroup,
+};
 use ark_ff::{UniformRand, Zero};
 use ark_std::{ops::Mul, rand::Rng};
 
@@ -33,7 +36,7 @@ pub struct CRS<E: Pairing> {
     pub v: Vec<Com2<E>>,
     pub g1_gen: E::G1Affine,
     pub g2_gen: E::G2Affine,
-    pub gt_gen: E::TargetField,
+    pub gt_gen: PairingOutput<E>,
 }
 
 impl<E: Pairing> CRS<E> {
@@ -108,7 +111,7 @@ impl<E: Pairing> AbstractCrs<E> for CRS<E> {
             v: vec![u21, u22],
             g1_gen: p1.into_affine(),
             g2_gen: p2.into_affine(),
-            gt_gen: E::pairing(p1.into_affine(), p2.into_affine()).0,
+            gt_gen: E::pairing(p1.into_affine(), p2.into_affine()),
         }
     }
 }
@@ -117,7 +120,7 @@ impl<E: Pairing> AbstractCrs<E> for CRS<E> {
 mod tests {
     use ark_bls12_381::Bls12_381 as F;
     use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
-    use ark_ff::{One, Zero};
+    use ark_ff::Zero;
     use ark_std::test_rng;
 
     use super::*;
@@ -126,7 +129,7 @@ mod tests {
     type G1Affine = <F as Pairing>::G1Affine;
     type G2Projective = <F as Pairing>::G2;
     type G2Affine = <F as Pairing>::G2Affine;
-    type GT = <F as Pairing>::TargetField;
+    type GT = PairingOutput<F>;
     type Fr = <F as Pairing>::ScalarField;
 
     #[test]
@@ -136,11 +139,11 @@ mod tests {
         let crs = CRS::<F>::generate_crs(&mut rng);
 
         // Generator for GT is e(g1,g2)
-        assert_eq!(crs.gt_gen, F::pairing(crs.g1_gen, crs.g2_gen).0);
+        assert_eq!(crs.gt_gen, F::pairing(crs.g1_gen, crs.g2_gen));
         // Non-degeneracy of bilinear pairing will hold
         assert_ne!(crs.g1_gen, G1Affine::zero());
         assert_ne!(crs.g2_gen, G2Affine::zero());
-        assert_ne!(crs.gt_gen, GT::one());
+        assert_ne!(crs.gt_gen, GT::zero());
     }
 
     #[allow(non_snake_case)]
