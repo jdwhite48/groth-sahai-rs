@@ -74,10 +74,10 @@ pub trait B1<E: Pairing>:
     fn as_vec(&self) -> Vec<E::G1Affine>;
     /// The linear map from G1 to B1 for pairing-product and multi-scalar multiplication equations.
     fn linear_map(x: &E::G1Affine) -> Self;
-    fn batch_linear_map(x_vec: &Vec<E::G1Affine>) -> Vec<Self>;
+    fn batch_linear_map(x_vec: &[E::G1Affine]) -> Vec<Self>;
     /// The linear map from scalar field to B1 for multi-scalar multiplication and quadratic equations.
     fn scalar_linear_map(x: &E::ScalarField, key: &CRS<E>) -> Self;
-    fn batch_scalar_linear_map(x_vec: &Vec<E::ScalarField>, key: &CRS<E>) -> Vec<Self>;
+    fn batch_scalar_linear_map(x_vec: &[E::ScalarField], key: &CRS<E>) -> Vec<Self>;
 
     fn scalar_mul(&self, other: &E::ScalarField) -> Self;
 }
@@ -92,10 +92,10 @@ pub trait B2<E: Pairing>:
     fn as_vec(&self) -> Vec<E::G2Affine>;
     /// The linear map from G2 to B2 for pairing-product and multi-scalar multiplication equations.
     fn linear_map(y: &E::G2Affine) -> Self;
-    fn batch_linear_map(y_vec: &Vec<E::G2Affine>) -> Vec<Self>;
+    fn batch_linear_map(y_vec: &[E::G2Affine]) -> Vec<Self>;
     /// The linear map from scalar field to B2 for multi-scalar multiplication and quadratic equations.
     fn scalar_linear_map(y: &E::ScalarField, key: &CRS<E>) -> Self;
-    fn batch_scalar_linear_map(y_vec: &Vec<E::ScalarField>, key: &CRS<E>) -> Vec<Self>;
+    fn batch_scalar_linear_map(y_vec: &[E::ScalarField], key: &CRS<E>) -> Vec<Self>;
 
     fn scalar_mul(&self, other: &E::ScalarField) -> Self;
 }
@@ -108,7 +108,7 @@ pub trait BT<E: Pairing, C1: B1<E>, C2: B2<E>>: B<E> + From<Matrix<E::TargetFiel
     /// with respect to the bilinear pairing over the bilinear group (G1, G2, GT).
     fn pairing(x: C1, y: C2) -> Self;
     /// The entry-wise sum of bilinear pairings over the GS commitment group.
-    fn pairing_sum(x_vec: &Vec<C1>, y_vec: &Vec<C2>) -> Self;
+    fn pairing_sum(x_vec: &[C1], y_vec: &[C2]) -> Self;
 
     /// The linear map from GT to BT for pairing-product equations.
     #[allow(non_snake_case)]
@@ -161,7 +161,7 @@ pub fn col_vec_to_vec<F: Clone>(mat: &Matrix<F>) -> Vec<F> {
 }
 
 /// Expand vector into column vector (in matrix form).
-pub fn vec_to_col_vec<F: Clone>(vec: &Vec<F>) -> Matrix<F> {
+pub fn vec_to_col_vec<F: Clone>(vec: &[F]) -> Matrix<F> {
     let mut mat = Vec::with_capacity(vec.len());
     for elem in vec.iter() {
         mat.push(vec![elem.clone()]);
@@ -322,7 +322,7 @@ impl<E: Pairing> B1<E> for Com1<E> {
     }
 
     #[inline]
-    fn batch_linear_map(x_vec: &Vec<E::G1Affine>) -> Vec<Self> {
+    fn batch_linear_map(x_vec: &[E::G1Affine]) -> Vec<Self> {
         x_vec
             .iter()
             .map(|elem| Self::linear_map(elem))
@@ -336,7 +336,7 @@ impl<E: Pairing> B1<E> for Com1<E> {
     }
 
     #[inline]
-    fn batch_scalar_linear_map(x_vec: &Vec<E::ScalarField>, key: &CRS<E>) -> Vec<Self> {
+    fn batch_scalar_linear_map(x_vec: &[E::ScalarField], key: &CRS<E>) -> Vec<Self> {
         x_vec
             .iter()
             .map(|elem| Self::scalar_linear_map(elem, key))
@@ -367,7 +367,7 @@ impl<E: Pairing> B2<E> for Com2<E> {
     }
 
     #[inline]
-    fn batch_linear_map(y_vec: &Vec<E::G2Affine>) -> Vec<Self> {
+    fn batch_linear_map(y_vec: &[E::G2Affine]) -> Vec<Self> {
         y_vec
             .iter()
             .map(|elem| Self::linear_map(elem))
@@ -381,7 +381,7 @@ impl<E: Pairing> B2<E> for Com2<E> {
     }
 
     #[inline]
-    fn batch_scalar_linear_map(y_vec: &Vec<E::ScalarField>, key: &CRS<E>) -> Vec<Self> {
+    fn batch_scalar_linear_map(y_vec: &[E::ScalarField], key: &CRS<E>) -> Vec<Self> {
         y_vec
             .iter()
             .map(|elem| Self::scalar_linear_map(elem, key))
@@ -510,7 +510,7 @@ impl<E: Pairing> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     }
 
     #[inline]
-    fn pairing_sum(x_vec: &Vec<Com1<E>>, y_vec: &Vec<Com2<E>>) -> ComT<E> {
+    fn pairing_sum(x_vec: &[Com1<E>], y_vec: &[Com2<E>]) -> ComT<E> {
         assert_eq!(x_vec.len(), y_vec.len());
         let xy_vec = x_vec
             .iter()

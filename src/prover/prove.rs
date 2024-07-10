@@ -25,8 +25,8 @@ pub trait Provable<E: Pairing, A1, A2, AT> {
     /// Commits to the witness variables and then produces a Groth-Sahai proof for this equation.
     fn commit_and_prove<CR>(
         &self,
-        xvars: &Vec<A1>,
-        yvars: &Vec<A2>,
+        xvars: &[A1],
+        yvars: &[A2],
         crs: &CRS<E>,
         rng: &mut CR,
     ) -> CProof<E>
@@ -35,8 +35,8 @@ pub trait Provable<E: Pairing, A1, A2, AT> {
     /// Produces a proof `(π, θ)` for this equation that the already-committed `x` and `y` variables will satisfy a single Groth-Sahai equation.
     fn prove<CR>(
         &self,
-        xvars: &Vec<A1>,
-        yvars: &Vec<A2>,
+        xvars: &[A1],
+        yvars: &[A2],
         xcoms: &Commit1<E>,
         ycoms: &Commit2<E>,
         crs: &CRS<E>,
@@ -66,8 +66,8 @@ pub struct CProof<E: Pairing> {
 impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, E::TargetField> for PPE<E> {
     fn commit_and_prove<CR>(
         &self,
-        xvars: &Vec<E::G1Affine>,
-        yvars: &Vec<E::G2Affine>,
+        xvars: &[E::G1Affine],
+        yvars: &[E::G2Affine],
         crs: &CRS<E>,
         rng: &mut CR,
     ) -> CProof<E>
@@ -86,8 +86,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, E::TargetField> for PPE<E
 
     fn prove<CR>(
         &self,
-        xvars: &Vec<E::G1Affine>,
-        yvars: &Vec<E::G2Affine>,
+        xvars: &[E::G1Affine],
+        yvars: &[E::G2Affine],
         xcoms: &Commit1<E>,
         ycoms: &Commit2<E>,
         crs: &CRS<E>,
@@ -169,8 +169,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, E::TargetField> for PPE<E
 impl<E: Pairing> Provable<E, E::G1Affine, E::ScalarField, E::G1Affine> for MSMEG1<E> {
     fn commit_and_prove<CR>(
         &self,
-        xvars: &Vec<E::G1Affine>,
-        scalar_yvars: &Vec<E::ScalarField>,
+        xvars: &[E::G1Affine],
+        scalar_yvars: &[E::ScalarField],
         crs: &CRS<E>,
         rng: &mut CR,
     ) -> CProof<E>
@@ -189,8 +189,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::ScalarField, E::G1Affine> for MSMEG
 
     fn prove<CR>(
         &self,
-        xvars: &Vec<E::G1Affine>,
-        scalar_yvars: &Vec<E::ScalarField>,
+        xvars: &[E::G1Affine],
+        scalar_yvars: &[E::ScalarField],
         xcoms: &Commit1<E>,
         scalar_ycoms: &Commit2<E>,
         crs: &CRS<E>,
@@ -272,8 +272,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::ScalarField, E::G1Affine> for MSMEG
 impl<E: Pairing> Provable<E, E::ScalarField, E::G2Affine, E::G2Affine> for MSMEG2<E> {
     fn commit_and_prove<CR>(
         &self,
-        scalar_xvars: &Vec<E::ScalarField>,
-        yvars: &Vec<E::G2Affine>,
+        scalar_xvars: &[E::ScalarField],
+        yvars: &[E::G2Affine],
         crs: &CRS<E>,
         rng: &mut CR,
     ) -> CProof<E>
@@ -292,8 +292,8 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::G2Affine, E::G2Affine> for MSMEG
 
     fn prove<CR>(
         &self,
-        scalar_xvars: &Vec<E::ScalarField>,
-        yvars: &Vec<E::G2Affine>,
+        scalar_xvars: &[E::ScalarField],
+        yvars: &[E::G2Affine],
         scalar_xcoms: &Commit1<E>,
         ycoms: &Commit2<E>,
         crs: &CRS<E>,
@@ -377,8 +377,8 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::G2Affine, E::G2Affine> for MSMEG
 impl<E: Pairing> Provable<E, E::ScalarField, E::ScalarField, E::ScalarField> for QuadEqu<E> {
     fn commit_and_prove<CR>(
         &self,
-        scalar_xvars: &Vec<E::ScalarField>,
-        scalar_yvars: &Vec<E::ScalarField>,
+        scalar_xvars: &[E::ScalarField],
+        scalar_yvars: &[E::ScalarField],
         crs: &CRS<E>,
         rng: &mut CR,
     ) -> CProof<E>
@@ -403,8 +403,8 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::ScalarField, E::ScalarField> for
     }
     fn prove<CR>(
         &self,
-        scalar_xvars: &Vec<E::ScalarField>,
-        scalar_yvars: &Vec<E::ScalarField>,
+        scalar_xvars: &[E::ScalarField],
+        scalar_yvars: &[E::ScalarField],
         scalar_xcoms: &Commit1<E>,
         scalar_ycoms: &Commit2<E>,
         crs: &CRS<E>,

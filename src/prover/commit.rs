@@ -74,7 +74,7 @@ where
 }
 
 /// Commit all [`G1`](ark_ec::Pairing::G1Affine) elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
-pub fn batch_commit_G1<CR, E>(xvars: &Vec<E::G1Affine>, key: &CRS<E>, rng: &mut CR) -> Commit1<E>
+pub fn batch_commit_G1<CR, E>(xvars: &[E::G1Affine], key: &CRS<E>, rng: &mut CR) -> Commit1<E>
 where
     E: Pairing,
     CR: Rng,
@@ -122,7 +122,7 @@ where
 
 /// Commit all [scalar field](ark_ec::Pairing::Fr) elements in list to corresponding element in [`B1`](crate::data_structures::Com1).
 pub fn batch_commit_scalar_to_B1<CR, E>(
-    scalar_xvars: &Vec<E::ScalarField>,
+    scalar_xvars: &[E::ScalarField],
     key: &CRS<E>,
     rng: &mut CR,
 ) -> Commit1<E>
@@ -174,7 +174,7 @@ where
 }
 
 /// Commit all [`G2`](ark_ec::Pairing::G2Affine) elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
-pub fn batch_commit_G2<CR, E>(yvars: &Vec<E::G2Affine>, key: &CRS<E>, rng: &mut CR) -> Commit2<E>
+pub fn batch_commit_G2<CR, E>(yvars: &[E::G2Affine], key: &CRS<E>, rng: &mut CR) -> Commit2<E>
 where
     E: Pairing,
     CR: Rng,
@@ -222,7 +222,7 @@ where
 
 /// Commit all [scalar field](ark_ec::Pairing::Fr) elements in list to corresponding element in [`B2`](crate::data_structures::Com2).
 pub fn batch_commit_scalar_to_B2<CR, E>(
-    scalar_yvars: &Vec<E::ScalarField>,
+    scalar_yvars: &[E::ScalarField],
     key: &CRS<E>,
     rng: &mut CR,
 ) -> Commit2<E>
