@@ -145,18 +145,9 @@ pub struct ComT<E: Pairing>(
 /// Collapse matrix into a single vector.
 pub fn col_vec_to_vec<F: Clone>(mat: &Matrix<F>) -> Vec<F> {
     if mat.len() == 1 {
-        let mut res = Vec::with_capacity(mat[0].len());
-        for elem in mat[0].iter() {
-            res.push(elem.clone());
-        }
-        res
+        mat[0].clone()
     } else {
-        let mut res = Vec::with_capacity(mat.len());
-        for i in 0..mat.len() {
-            assert_eq!(mat[i].len(), 1);
-            res.push(mat[i][0].clone());
-        }
-        res
+        mat.iter().map(|v| v[0].clone()).collect()
     }
 }
 
@@ -1653,6 +1644,13 @@ mod tests {
             };
         }
 
+        macro_rules! assert_matrix_dimensions {
+            ($matrix:ident, $rows:expr, $cols:expr) => {
+                assert_eq!($matrix.len(), $rows);
+                $matrix.iter().for_each(|r| assert_eq!(r.len(), $cols));
+            };
+        }
+
         #[test]
         fn test_col_vec_to_vec() {
             let mat = vec![
@@ -1704,8 +1702,7 @@ mod tests {
             let res: Matrix<Fr> = rhs.left_mul(&lhs, false);
 
             // 1 x 1 resulting matrix
-            assert_eq!(res.len(), 1);
-            assert_eq!(res[0].len(), 1);
+            assert_matrix_dimensions!(res, 1, 1);
 
             assert_eq!(exp, res);
         }
@@ -1729,8 +1726,7 @@ mod tests {
             let res: Matrix<Fr> = lhs.right_mul(&rhs, false);
 
             // 1 x 1 resulting matrix
-            assert_eq!(res.len(), 1);
-            assert_eq!(res[0].len(), 1);
+            assert_matrix_dimensions!(res, 1, 1);
 
             assert_eq!(exp, res);
         }
@@ -1785,9 +1781,7 @@ mod tests {
             let res: Matrix<Fr> = rhs.left_mul(&lhs, false);
 
             // 2 x 4 resulting matrix
-            assert_eq!(res.len(), 2);
-            assert_eq!(res[0].len(), 4);
-            assert_eq!(res[1].len(), 4);
+            assert_matrix_dimensions!(res, 2, 4);
 
             assert_eq!(exp, res);
         }
@@ -1956,9 +1950,7 @@ mod tests {
             let res: Matrix<Fr> = lhs.right_mul(&rhs, true);
 
             // 2 x 4 resulting matrix
-            assert_eq!(res.len(), 2);
-            assert_eq!(res[0].len(), 4);
-            assert_eq!(res[1].len(), 4);
+            assert_matrix_dimensions!(res, 2, 4);
 
             assert_eq!(exp, res);
         }
@@ -1989,8 +1981,7 @@ mod tests {
             let res: Matrix<Com1<F>> = rhs.left_mul(&lhs, false);
 
             // 1 x 1 resulting matrix
-            assert_eq!(res.len(), 1);
-            assert_eq!(res[0].len(), 1);
+            assert_matrix_dimensions!(res, 1, 1);
 
             assert_eq!(exp, res);
         }
@@ -2018,9 +2009,7 @@ mod tests {
             )]];
             let res: Matrix<Com1<F>> = lhs.right_mul(&rhs, false);
 
-            // 1 x 1 resulting matrix
-            assert_eq!(res.len(), 1);
-            assert_eq!(res[0].len(), 1);
+            assert_matrix_dimensions!(res, 1, 1);
 
             assert_eq!(exp, res);
         }
@@ -2142,10 +2131,7 @@ mod tests {
             ];
             let res: Matrix<Com1<F>> = mat.transpose();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 1);
-            }
+            assert_matrix_dimensions!(res, 3, 1);
             assert_eq!(exp, res);
         }
 
@@ -2191,10 +2177,7 @@ mod tests {
             ];
             let res: Matrix<Com1<F>> = mat.transpose();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 3);
-            }
+            assert_matrix_dimensions!(res, 3, 3);
 
             assert_eq!(exp, res);
         }
@@ -2217,10 +2200,7 @@ mod tests {
             ];
             let res: Matrix<Com2<F>> = mat.transpose();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 1);
-            }
+            assert_matrix_dimensions!(res, 3, 1);
             assert_eq!(exp, res);
         }
 
@@ -2266,10 +2246,7 @@ mod tests {
             ];
             let res: Matrix<Com2<F>> = mat.transpose();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 3);
-            }
+            assert_matrix_dimensions!(res, 3, 3);
 
             assert_eq!(exp, res);
         }
@@ -2292,10 +2269,7 @@ mod tests {
             ];
             let res: Matrix<Fr> = mat.transpose();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 1);
-            }
+            assert_matrix_dimensions!(res, 3, 1);
 
             assert_eq!(exp, res);
         }
@@ -2333,10 +2307,7 @@ mod tests {
             ];
             let res: Matrix<Fr> = mat.transpose();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 3);
-            }
+            assert_matrix_dimensions!(res, 3, 3);
 
             assert_eq!(exp, res);
         }
@@ -2378,10 +2349,7 @@ mod tests {
             ];
             let res: Matrix<Fr> = mat.neg();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 3);
-            }
+            assert_matrix_dimensions!(res, 3, 3);
 
             assert_eq!(exp, res);
         }
@@ -2428,10 +2396,7 @@ mod tests {
             ];
             let res: Matrix<Com1<F>> = mat.neg();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 3);
-            }
+            assert_matrix_dimensions!(res, 3, 3);
 
             assert_eq!(exp, res);
         }
@@ -2478,10 +2443,7 @@ mod tests {
             ];
             let res: Matrix<Com2<F>> = mat.neg();
 
-            assert_eq!(res.len(), 3);
-            for i in 0..res.len() {
-                assert_eq!(res[i].len(), 3);
-            }
+            assert_matrix_dimensions!(res, 3, 3);
 
             assert_eq!(exp, res);
         }
@@ -2540,10 +2502,7 @@ mod tests {
             let lr: Matrix<Fr> = lhs.add(&rhs);
             let rl: Matrix<Fr> = rhs.add(&lhs);
 
-            assert_eq!(lr.len(), 3);
-            for i in 0..lr.len() {
-                assert_eq!(lr[i].len(), 3);
-            }
+            assert_matrix_dimensions!(lr, 3, 3);
 
             assert_eq!(exp, lr);
             assert_eq!(lr, rl);
@@ -2609,10 +2568,7 @@ mod tests {
             let lr: Matrix<Com1<F>> = lhs.add(&rhs);
             let rl: Matrix<Com1<F>> = rhs.add(&lhs);
 
-            assert_eq!(lr.len(), 3);
-            for i in 0..lr.len() {
-                assert_eq!(lr[i].len(), 3);
-            }
+            assert_matrix_dimensions!(lr, 3, 3);
 
             assert_eq!(exp, lr);
             assert_eq!(lr, rl);
@@ -2678,10 +2634,7 @@ mod tests {
             let lr: Matrix<Com2<F>> = lhs.add(&rhs);
             let rl: Matrix<Com2<F>> = rhs.add(&lhs);
 
-            assert_eq!(lr.len(), 3);
-            for i in 0..lr.len() {
-                assert_eq!(lr[i].len(), 3);
-            }
+            assert_matrix_dimensions!(lr, 3, 3);
 
             assert_eq!(exp, lr);
             assert_eq!(lr, rl);
