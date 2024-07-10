@@ -48,14 +48,11 @@ pub fn bench_small_field_matrix_mul(c: &mut Criterion) {
     ];
     // 2 x 1 matrix
     let rhs: Matrix<Fr> = vec![vec![Fr::rand(&mut rng)], vec![Fr::rand(&mut rng)]];
-    c.bench_function(
-        &format!("sequential (2 x 2) * (2 x 1) field matrix mult"),
-        |bench| {
-            bench.iter(|| {
-                let _ = lhs.right_mul(&rhs, false);
-            });
-        },
-    );
+    c.bench_function("sequential (2 x 2) * (2 x 1) field matrix mult", |bench| {
+        bench.iter(|| {
+            let _ = lhs.right_mul(&rhs, false);
+        });
+    });
 }
 
 pub fn bench_small_field_matrix_mul_par(c: &mut Criterion) {
@@ -69,14 +66,11 @@ pub fn bench_small_field_matrix_mul_par(c: &mut Criterion) {
     ];
     // 2 x 1 matrix
     let rhs: Matrix<Fr> = vec![vec![Fr::rand(&mut rng)], vec![Fr::rand(&mut rng)]];
-    c.bench_function(
-        &format!("concurrent (2 x 2) * (2 x 1) field matrix mult"),
-        |bench| {
-            bench.iter(|| {
-                let _ = lhs.right_mul(&rhs, true);
-            });
-        },
-    );
+    c.bench_function("concurrent (2 x 2) * (2 x 1) field matrix mult", |bench| {
+        bench.iter(|| {
+            let _ = lhs.right_mul(&rhs, true);
+        });
+    });
 }
 
 pub fn bench_large_field_matrix_mul(c: &mut Criterion) {
@@ -158,14 +152,11 @@ pub fn bench_small_B1_matrix_mul(c: &mut Criterion) {
         vec![Fr::rand(&mut rng), Fr::rand(&mut rng)],
         vec![Fr::rand(&mut rng), Fr::rand(&mut rng)],
     ];
-    c.bench_function(
-        &format!("sequential (2 x 2) Fp * (2 x 1) B1 matrix mult"),
-        |bench| {
-            bench.iter(|| {
-                let _ = rhs.left_mul(&lhs, false);
-            });
-        },
-    );
+    c.bench_function("sequential (2 x 2) Fp * (2 x 1) B1 matrix mult", |bench| {
+        bench.iter(|| {
+            let _ = rhs.left_mul(&lhs, false);
+        });
+    });
 }
 
 pub fn bench_small_B1_matrix_mul_par(c: &mut Criterion) {
@@ -187,14 +178,11 @@ pub fn bench_small_B1_matrix_mul_par(c: &mut Criterion) {
         vec![Fr::rand(&mut rng), Fr::rand(&mut rng)],
         vec![Fr::rand(&mut rng), Fr::rand(&mut rng)],
     ];
-    c.bench_function(
-        &format!("concurrent (2 x 2) Fp * (2 x 1) B1 matrix mult"),
-        |bench| {
-            bench.iter(|| {
-                let _ = rhs.left_mul(&lhs, true);
-            });
-        },
-    );
+    c.bench_function("concurrent (2 x 2) Fp * (2 x 1) B1 matrix mult", |bench| {
+        bench.iter(|| {
+            let _ = rhs.left_mul(&lhs, true);
+        });
+    });
 }
 
 fn bench_B1_scalar_mul(c: &mut Criterion) {
@@ -205,7 +193,7 @@ fn bench_B1_scalar_mul(c: &mut Criterion) {
     let b1 = Com1::<F>(g11, g12);
     let fr = Fr::rand(&mut rng);
 
-    c.bench_function(&format!("B1 scalar mul"), |bench| {
+    c.bench_function("B1 scalar mul", |bench| {
         bench.iter(|| {
             let _ = b1.scalar_mul(&fr);
         });
@@ -222,7 +210,7 @@ fn bench_B1_add(c: &mut Criterion) {
     let g22 = G1Projective::rand(&mut rng).into_affine();
     let b12 = Com1::<F>(g21, g22);
 
-    c.bench_function(&format!("B1 add"), |bench| {
+    c.bench_function("B1 add", |bench| {
         bench.iter(|| {
             let _ = b11 + b12;
         });
@@ -235,7 +223,7 @@ fn bench_G1_scalar_mul(c: &mut Criterion) {
     let g1gen = G1Projective::rand(&mut rng).into_affine();
     let fr = Fr::rand(&mut rng);
 
-    c.bench_function(&format!("G1 scalar mul"), |bench| {
+    c.bench_function("G1 scalar mul", |bench| {
         bench.iter(|| {
             let _ = g1gen.mul(fr);
         });
@@ -248,7 +236,7 @@ fn bench_G1_affine_add(c: &mut Criterion) {
     let g11 = G1Projective::rand(&mut rng).into_affine();
     let g12 = G1Projective::rand(&mut rng).into_affine();
 
-    c.bench_function(&format!("G1 affine add"), |bench| {
+    c.bench_function("G1 affine add", |bench| {
         bench.iter(|| {
             let _ = g11 + g12;
         });
@@ -261,7 +249,7 @@ fn bench_G1_projective_add(c: &mut Criterion) {
     let g11 = G1Projective::rand(&mut rng);
     let g12 = G1Projective::rand(&mut rng);
 
-    c.bench_function(&format!("G1 projective add"), |bench| {
+    c.bench_function("G1 projective add", |bench| {
         bench.iter(|| {
             let _ = g11 + g12;
         });
@@ -273,7 +261,7 @@ fn bench_G1_into_affine(c: &mut Criterion) {
     let mut rng = test_rng();
     let g1gen = G1Projective::rand(&mut rng);
 
-    c.bench_function(&format!("G1 projective into affine"), |bench| {
+    c.bench_function("G1 projective into affine", |bench| {
         bench.iter(|| {
             let _ = g1gen.into_affine();
         });
@@ -285,7 +273,7 @@ fn bench_G1_into_projective(c: &mut Criterion) {
     let mut rng = test_rng();
     let g1gen = G1Projective::rand(&mut rng).into_affine();
 
-    c.bench_function(&format!("G1 affine into projective"), |bench| {
+    c.bench_function("G1 affine into projective", |bench| {
         bench.iter(|| {
             let _ = g1gen.into_group();
         });
@@ -299,7 +287,7 @@ fn bench_small_batch_commit_G1(c: &mut Criterion) {
 
     let xvars: Vec<G1Affine> = vec![crs.g1_gen, affine_group_new!(crs.g1_gen, "2")];
 
-    c.bench_function(&format!("commit 2 G1"), |bench| {
+    c.bench_function("commit 2 G1", |bench| {
         bench.iter(|| {
             let _ = batch_commit_G1(&xvars, &crs, &mut rng);
         });
@@ -331,7 +319,7 @@ fn bench_small_batch_commit_G2(c: &mut Criterion) {
 
     let yvars: Vec<G2Affine> = vec![crs.g2_gen, affine_group_new!(crs.g2_gen, "2")];
 
-    c.bench_function(&format!("commit 2 G2"), |bench| {
+    c.bench_function("commit 2 G2", |bench| {
         bench.iter(|| {
             let _ = batch_commit_G2(&yvars, &crs, &mut rng);
         });
@@ -363,7 +351,7 @@ fn bench_small_batch_commit_scalar_to_B1(c: &mut Criterion) {
 
     let scalar_xvars: Vec<Fr> = vec![Fr::rand(&mut rng), Fr::rand(&mut rng)];
 
-    c.bench_function(&format!("commit 2 scalar to B1"), |bench| {
+    c.bench_function("commit 2 scalar to B1", |bench| {
         bench.iter(|| {
             let _ = batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
         });
@@ -395,7 +383,7 @@ fn bench_small_batch_commit_scalar_to_B2(c: &mut Criterion) {
 
     let scalar_yvars: Vec<Fr> = vec![Fr::rand(&mut rng), Fr::rand(&mut rng)];
 
-    c.bench_function(&format!("commit 2 scalar to B2"), |bench| {
+    c.bench_function("commit 2 scalar to B2", |bench| {
         bench.iter(|| {
             let _ = batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng);
         });
@@ -444,14 +432,11 @@ fn bench_small_PPE_proof(c: &mut Criterion) {
         target: Fqk::rand(&mut rng),
     };
 
-    c.bench_function(
-        &format!("prove PPE equation with 2 G1 vars, 1 G2 var"),
-        |bench| {
-            bench.iter(|| {
-                let _ = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
-            });
-        },
-    );
+    c.bench_function("prove PPE equation with 2 G1 vars, 1 G2 var", |bench| {
+        bench.iter(|| {
+            let _ = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
+        });
+    });
 }
 
 fn bench_large_PPE_proof(c: &mut Criterion) {
@@ -527,14 +512,11 @@ fn bench_small_PPE_verify(c: &mut Criterion) {
 
     let proof: CProof<F> = equ.commit_and_prove(&xvars, &yvars, &crs, &mut rng);
 
-    c.bench_function(
-        &format!("verify PPE equation with 2 G1 vars, 1 G2 var"),
-        |bench| {
-            bench.iter(|| {
-                let _ = equ.verify(&proof, &crs);
-            });
-        },
-    );
+    c.bench_function("verify PPE equation with 2 G1 vars, 1 G2 var", |bench| {
+        bench.iter(|| {
+            let _ = equ.verify(&proof, &crs);
+        });
+    });
 }
 
 fn bench_large_PPE_verify(c: &mut Criterion) {
