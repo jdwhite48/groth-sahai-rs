@@ -490,14 +490,14 @@ impl<E: Pairing> BT<E, Com1<E>, Com2<E>> for ComT<E> {
     }
 
     #[inline]
-    fn pairing_sum(x_vec: &[Com1<E>], y_vec: &[Com2<E>]) -> ComT<E> {
+    fn pairing_sum(x_vec: &[Com1<E>], y_vec: &[Com2<E>]) -> Self {
         assert_eq!(x_vec.len(), y_vec.len());
-        let xy_vec = x_vec
-            .iter()
-            .zip(y_vec)
-            .collect::<Vec<(&Com1<E>, &Com2<E>)>>();
-
-        xy_vec.into_iter().map(|(&x, &y)| Self::pairing(x, y)).sum()
+        Self(
+            E::multi_pairing(x_vec.iter().map(|x| x.0), y_vec.iter().map(|y| y.0)),
+            E::multi_pairing(x_vec.iter().map(|x| x.0), y_vec.iter().map(|y| y.1)),
+            E::multi_pairing(x_vec.iter().map(|x| x.1), y_vec.iter().map(|y| y.0)),
+            E::multi_pairing(x_vec.iter().map(|x| x.1), y_vec.iter().map(|y| y.1)),
+        )
     }
 
     fn as_matrix(&self) -> Matrix<PairingOutput<E>> {
