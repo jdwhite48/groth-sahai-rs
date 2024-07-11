@@ -15,13 +15,13 @@ pub trait Commit: Eq + Debug {
 }
 
 /// Contains both the commitment's values (as [`Com1`](crate::data_structures::Com1)) and its randomness.
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Commit1<E: Pairing> {
     pub coms: Vec<Com1<E>>,
     pub(super) rand: Matrix<E::ScalarField>,
 }
 /// Contains both the commitment's values (as [`Com2`](crate::data_structures::Com2)) and its randomness.
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Commit2<E: Pairing> {
     pub coms: Vec<Com2<E>>,
     pub(super) rand: Matrix<E::ScalarField>,
@@ -30,15 +30,6 @@ pub struct Commit2<E: Pairing> {
 macro_rules! impl_com {
     ($( $commit:ident ),*) => {
         $(
-            impl<E: Pairing> PartialEq for $commit<E> {
-
-                #[inline]
-                fn eq(&self, other: &Self) -> bool {
-                    self.coms == other.coms && self.rand == other.rand
-                }
-            }
-            impl<E: Pairing> Eq for $commit<E> {}
-
             impl<E: Pairing> Commit for $commit<E> {
                 fn append(&mut self, other: &mut Self) {
                     // One row of random values per committed value
