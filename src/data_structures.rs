@@ -654,7 +654,7 @@ macro_rules! impl_base_commit_mats {
                     let row_dim = self.len();
 
                     if is_parallel {
-                        let mut rows = (0..row_dim)
+                        let rows: Vec<_> = (0..row_dim)
                             .into_par_iter()
                             .map( |i| {
                                 let row = &self[i];
@@ -662,35 +662,19 @@ macro_rules! impl_base_commit_mats {
 
                                 // Perform multiplication for single row
                                 // Assuming every column in b has the same length
-                                let mut cols = (0..rhs[0].len())
+                                let cols: Vec<_> = (0..rhs[0].len())
                                     .into_par_iter()
                                     .map( |j| {
-                                        (j, (0..dim).map( |k| row[k].scalar_mul(&rhs[k][j])).sum())
+                                        (0..dim).map( |k| row[k].scalar_mul(&rhs[k][j])).sum()
                                     })
-                                    .collect::<Vec<(usize, $com<E>)>>();
-
-                                // After computing concurrently, sort by index
-                                cols.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-                                // Strip off index and return Vec<F>
-                                let final_row = cols.into_iter()
-                                    .map( |(_, elem)| elem)
                                     .collect();
 
-                                (i, final_row)
+                                cols
                             })
-                            .collect::<Vec<(usize, Vec<$com<E>>)>>();
+                            .collect();
 
-                        // After computing concurrently, sort by index
-                        rows.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-                        // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
-                        rows.into_iter()
-                            .map( |(_, row)| row)
-                            .collect()
-                    }
-                    else {
-
+                        rows
+                    } else {
                         (0..row_dim)
                             .map( |i| {
                                 let row = &self[i];
@@ -721,39 +705,25 @@ macro_rules! impl_base_commit_mats {
                     let row_dim = lhs.len();
 
                     if is_parallel {
-                        let mut rows = (0..row_dim)
+                        let rows: Vec<_> = (0..row_dim)
                             .into_par_iter()
                             .map( |i| {
                                 let row = &lhs[i];
                                 let dim = self.len();
 
                                 // Perform matrix multiplication for single row
-                                let mut cols = (0..self[0].len())
+                                let cols: Vec<_> = (0..self[0].len())
                                     .into_par_iter()
-                                    .map( |j| {
-                                        (j, (0..dim).map( |k| self[k][j].scalar_mul(&row[k]) ).sum())
+                                    .map(|j| {
+                                        (0..dim).map( |k| self[k][j].scalar_mul(&row[k])).sum()
                                     })
-                                    .collect::<Vec<(usize, $com<E>)>>();
-
-                                // After computing concurrently, sort by index
-                                cols.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-                                // Strip off index and return Vec<F>
-                                let final_row = cols.into_iter()
-                                    .map( |(_, elem)| elem)
                                     .collect();
 
-                                (i, final_row)
+                                cols
                             })
-                            .collect::<Vec<(usize, Vec<$com<E>>)>>();
+                            .collect();
 
-                        // After computing concurrently, sort by index
-                        rows.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-                        // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
-                        rows.into_iter()
-                            .map( |(_, row)| row)
-                            .collect()
+                        rows
                     }
                     else {
                         (0..row_dim)
@@ -863,7 +833,7 @@ impl<F: Field> Mat<F> for Matrix<F> {
         let row_dim = self.len();
 
         if is_parallel {
-            let mut rows = (0..row_dim)
+            let rows: Vec<_> = (0..row_dim)
                 .into_par_iter()
                 .map(|i| {
                     let row = &self[i];
@@ -871,26 +841,16 @@ impl<F: Field> Mat<F> for Matrix<F> {
 
                     // Perform multiplication for single row
                     // Assuming every column in b has the same length
-                    let mut cols = (0..rhs[0].len())
+                    let cols: Vec<_> = (0..rhs[0].len())
                         .into_par_iter()
-                        .map(|j| (j, (0..dim).map(|k| row[k] * rhs[k][j]).sum()))
-                        .collect::<Vec<(usize, F)>>();
+                        .map(|j| (0..dim).map(|k| row[k] * rhs[k][j]).sum())
+                        .collect();
 
-                    // After computing concurrently, sort by index
-                    cols.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-                    // Strip off index and return Vec<F>
-                    let final_row = cols.into_iter().map(|(_, elem)| elem).collect();
-
-                    (i, final_row)
+                    cols
                 })
-                .collect::<Vec<(usize, Vec<F>)>>();
+                .collect();
 
-            // After computing concurrently, sort by index
-            rows.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-            // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
-            rows.into_iter().map(|(_, row)| row).collect()
+            rows
         } else {
             (0..row_dim)
                 .map(|i| {
@@ -920,33 +880,23 @@ impl<F: Field> Mat<F> for Matrix<F> {
         let row_dim = lhs.len();
 
         if is_parallel {
-            let mut rows = (0..row_dim)
+            let rows: Vec<_> = (0..row_dim)
                 .into_par_iter()
                 .map(|i| {
                     let row = &lhs[i];
                     let dim = self.len();
 
                     // Perform matrix multiplication for single row
-                    let mut cols = (0..self[0].len())
+                    let cols: Vec<_> = (0..self[0].len())
                         .into_par_iter()
-                        .map(|j| (j, (0..dim).map(|k| self[k][j] * row[k]).sum()))
-                        .collect::<Vec<(usize, F)>>();
+                        .map(|j| (0..dim).map(|k| self[k][j] * row[k]).sum())
+                        .collect();
 
-                    // After computing concurrently, sort by index
-                    cols.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-                    // Strip off index and return Vec<F>
-                    let final_row = cols.into_iter().map(|(_, elem)| elem).collect();
-
-                    (i, final_row)
+                    cols
                 })
-                .collect::<Vec<(usize, Vec<F>)>>();
+                .collect();
 
-            // After computing concurrently, sort by index
-            rows.par_sort_by(|left, right| left.0.cmp(&right.0));
-
-            // Strip off index and return Vec<Vec<F>> (i.e. Matrix<F>)
-            rows.into_iter().map(|(_, row)| row).collect()
+            rows
         } else {
             (0..row_dim)
                 .map(|i| {
