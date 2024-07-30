@@ -1,7 +1,7 @@
 pub mod data_structures;
 pub mod generator;
-pub mod statement;
 pub mod prover;
+pub mod statement;
 pub mod verifier;
 
 pub use crate::data_structures::*;
