@@ -32,6 +32,7 @@
 //! This API does not provide such functionality.
 
 use ark_ec::pairing::{Pairing, PairingOutput};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 
 use crate::data_structures::Matrix;
 use crate::prover::Provable;
@@ -40,10 +41,59 @@ use crate::verifier::Verifiable;
 /// Groth-Sahai statement (i.e. bilinear equation) types.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EquType {
+    // The order of the variants must be preserved for serialization.
     PairingProduct,
     MultiScalarG1,
     MultiScalarG2,
     Quadratic,
+}
+
+// Implement the `Valid` trait required for implementing `CanonicalDeserialize`.
+impl Valid for EquType {
+    fn check(&self) -> Result<(), ark_serialize::SerializationError> {
+        Ok(())
+    }
+}
+
+// Although `CanonicalSerialize` and `CanonicalDeerialize` are typically used for elements
+// in arkworks ecosystem, here we implement it for the `EquType` enum so that the it can
+// be used as a field in structs that support canonical (de)serialization.
+impl CanonicalSerialize for EquType {
+    #[inline]
+    fn serialize_with_mode<W: ark_serialize::Write>(
+        &self,
+        writer: W,
+        _compress: ark_serialize::Compress,
+    ) -> Result<(), ark_serialize::SerializationError> {
+        let b = match self {
+            EquType::PairingProduct => 0u8,
+            EquType::MultiScalarG1 => 1,
+            EquType::MultiScalarG2 => 2,
+            EquType::Quadratic => 3,
+        };
+        u8::serialize_compressed(&b, writer)
+    }
+
+    fn serialized_size(&self, _compress: ark_serialize::Compress) -> usize {
+        1 // 1 byte
+    }
+}
+
+impl CanonicalDeserialize for EquType {
+    #[inline]
+    fn deserialize_with_mode<R: ark_serialize::Read>(
+        reader: R,
+        _compress: ark_serialize::Compress,
+        _validate: ark_serialize::Validate,
+    ) -> Result<Self, ark_serialize::SerializationError> {
+        match u8::deserialize_compressed(reader)? {
+            0 => Ok(EquType::PairingProduct),
+            1 => Ok(EquType::MultiScalarG1),
+            2 => Ok(EquType::MultiScalarG2),
+            3 => Ok(EquType::Quadratic),
+            _ => Err(ark_serialize::SerializationError::InvalidData),
+        }
+    }
 }
 
 /// A marker trait for an arbitrary Groth-Sahai [`Equation`](self::Equation).
@@ -64,7 +114,7 @@ pub type Statement = Vec<dyn Equ>;
 /// For example, the equation `e(W, N) * e(U, V)^5 = t_T` can be expressed by the following
 /// (private) witness variables `X = [U, W]`, `Y = [V]`, (public) constants `A = [0]`, `B = [0, N]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_T` in `GT`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PPE<E: Pairing> {
     pub a_consts: Vec<E::G1Affine>,
     pub b_consts: Vec<E::G2Affine>,
@@ -85,7 +135,7 @@ impl<E: Pairing> Equation<E, E::G1Affine, E::G2Affine, PairingOutput<E>> for PPE
 /// For example, the equation `n * W + (v * U)^5 = t_1` can be expressed by the following
 /// (private) witness variables `X = [U, W]`, `Y = [v]`, (public) constants `A = [0]`, `B = [0, n]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_1` in `G1`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct MSMEG1<E: Pairing> {
     pub a_consts: Vec<E::G1Affine>,
     pub b_consts: Vec<E::ScalarField>,
@@ -106,7 +156,7 @@ impl<E: Pairing> Equation<E, E::G1Affine, E::ScalarField, E::G1Affine> for MSMEG
 /// For example, the equation `w * N + (u * V)^5 = t_2` can be expressed by the following
 /// (private) witness variables `X = [u, w]`, `Y = [V]`, (public) constants `A = [0]`, `B = [0, N]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_2` in `G2`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct MSMEG2<E: Pairing> {
     pub a_consts: Vec<E::ScalarField>,
     pub b_consts: Vec<E::G2Affine>,
@@ -126,7 +176,7 @@ impl<E: Pairing> Equation<E, E::ScalarField, E::G2Affine, E::G2Affine> for MSMEG
 /// For example, the equation `w * n + (u * v)^5 = t_p` can be expressed by the following
 /// (private) witness variables `X = [u, w]`, `Y = [v]`, (public) constants `A = [0]`, `B = [0, n]`,
 /// pairing exponent matrix `Γ = [[5], [0]]`, and `target = t_p` in `Fr`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct QuadEqu<E: Pairing> {
     pub a_consts: Vec<E::ScalarField>,
     pub b_consts: Vec<E::ScalarField>,
@@ -158,6 +208,31 @@ mod tests {
     type GT = PairingOutput<F>;
 
     #[test]
+    fn test_equtypes_serde() {
+        for equ_type in [
+            EquType::PairingProduct,
+            EquType::MultiScalarG1,
+            EquType::MultiScalarG2,
+            EquType::Quadratic,
+        ] {
+            assert_eq!(equ_type.serialized_size(ark_serialize::Compress::Yes), 1);
+            assert_eq!(equ_type.serialized_size(ark_serialize::Compress::No), 1);
+
+            let mut c_bytes = Vec::new();
+            equ_type.serialize_compressed(&mut c_bytes).unwrap();
+            assert_eq!(c_bytes.len(), 1);
+            let equ_type_de = EquType::deserialize_compressed(&c_bytes[..]).unwrap();
+            assert_eq!(equ_type, equ_type_de);
+
+            let mut u_bytes = Vec::new();
+            equ_type.serialize_uncompressed(&mut u_bytes).unwrap();
+            assert_eq!(u_bytes.len(), 1);
+            let equ_type_de = EquType::deserialize_uncompressed(&u_bytes[..]).unwrap();
+            assert_eq!(equ_type, equ_type_de);
+        }
+    }
+
+    #[test]
     fn test_PPE_equation_type() {
         let mut rng = test_rng();
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -170,6 +245,31 @@ mod tests {
         };
 
         assert_eq!(equ.get_type(), EquType::PairingProduct);
+    }
+
+    #[test]
+    fn test_PPE_equation_serde() {
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let equ: PPE<F> = PPE::<F> {
+            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            gamma: vec![vec![Fr::rand(&mut rng)]],
+            target: GT::rand(&mut rng),
+        };
+
+        // Serialize and deserialize the equation.
+
+        let mut c_bytes = Vec::new();
+        equ.serialize_compressed(&mut c_bytes).unwrap();
+        let equ_de = PPE::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(equ, equ_de);
+
+        let mut u_bytes = Vec::new();
+        equ.serialize_uncompressed(&mut u_bytes).unwrap();
+        let equ_de = PPE::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(equ, equ_de);
     }
 
     #[test]
@@ -188,6 +288,31 @@ mod tests {
     }
 
     #[test]
+    fn test_MSMEG1_equation_serde() {
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let equ: MSMEG1<F> = MSMEG1::<F> {
+            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            b_consts: vec![Fr::rand(&mut rng)],
+            gamma: vec![vec![Fr::rand(&mut rng)]],
+            target: crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine(),
+        };
+
+        // Serialize and deserialize the equation.
+
+        let mut c_bytes = Vec::new();
+        equ.serialize_compressed(&mut c_bytes).unwrap();
+        let equ_de = MSMEG1::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(equ, equ_de);
+
+        let mut u_bytes = Vec::new();
+        equ.serialize_uncompressed(&mut u_bytes).unwrap();
+        let equ_de = MSMEG1::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(equ, equ_de);
+    }
+
+    #[test]
     fn test_MSMEG2_equation_type() {
         let mut rng = test_rng();
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -203,6 +328,31 @@ mod tests {
     }
 
     #[test]
+    fn test_MSMEG2_equation_serde() {
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let equ: MSMEG2<F> = MSMEG2::<F> {
+            a_consts: vec![Fr::rand(&mut rng)],
+            b_consts: vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            gamma: vec![vec![Fr::rand(&mut rng)]],
+            target: crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
+        };
+
+        // Serialize and deserialize the equation.
+
+        let mut c_bytes = Vec::new();
+        equ.serialize_compressed(&mut c_bytes).unwrap();
+        let equ_de = MSMEG2::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(equ, equ_de);
+
+        let mut u_bytes = Vec::new();
+        equ.serialize_uncompressed(&mut u_bytes).unwrap();
+        let equ_de = MSMEG2::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(equ, equ_de);
+    }
+
+    #[test]
     fn test_quadratic_equation_type() {
         let mut rng = test_rng();
 
@@ -214,5 +364,29 @@ mod tests {
         };
 
         assert_eq!(equ.get_type(), EquType::Quadratic);
+    }
+
+    #[test]
+    fn test_quadratic_equation_serde() {
+        let mut rng = test_rng();
+
+        let equ: QuadEqu<F> = QuadEqu::<F> {
+            a_consts: vec![Fr::rand(&mut rng)],
+            b_consts: vec![Fr::rand(&mut rng)],
+            gamma: vec![vec![Fr::rand(&mut rng)]],
+            target: Fr::rand(&mut rng),
+        };
+
+        // Serialize and deserialize the equation.
+
+        let mut c_bytes = Vec::new();
+        equ.serialize_compressed(&mut c_bytes).unwrap();
+        let equ_de = QuadEqu::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(equ, equ_de);
+
+        let mut u_bytes = Vec::new();
+        equ.serialize_uncompressed(&mut u_bytes).unwrap();
+        let equ_de = QuadEqu::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(equ, equ_de);
     }
 }
