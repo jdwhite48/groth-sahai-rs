@@ -14,6 +14,7 @@
 
 use ark_ec::pairing::Pairing;
 use ark_ec::pairing::PairingOutput;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{rand::Rng, UniformRand};
 
 use super::commit::{
@@ -51,7 +52,7 @@ pub trait Provable<E: Pairing, A1, A2, AT> {
 }
 
 /// A witness-indistinguishable proof for a single [`Equation`](crate::statement::Equation).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct EquProof<E: Pairing> {
     pub pi: Vec<Com2<E>>,
     pub theta: Vec<Com1<E>>,
@@ -588,6 +589,42 @@ mod tests {
     }
 
     #[test]
+    fn test_PPE_cproof_serde() {
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let xvars: Vec<G1Affine> = vec![
+            crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine(),
+            crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine(),
+        ];
+        let yvars: Vec<G2Affine> = vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()];
+        let xcoms: Commit1<F> = batch_commit_G1(&xvars, &crs, &mut rng);
+        let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
+
+        let equ: PPE<F> = PPE::<F> {
+            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            b_consts: vec![
+                crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
+                crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
+            ],
+            gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
+            target: GT::rand(&mut rng),
+        };
+        let proof: EquProof<F> = equ.prove(&xvars, &yvars, &xcoms, &ycoms, &crs, &mut rng);
+
+        // Serialize and deserialize the proof
+        let mut c_bytes = Vec::new();
+        proof.serialize_compressed(&mut c_bytes).unwrap();
+        let proof_de = EquProof::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(proof, proof_de);
+
+        let mut u_bytes = Vec::new();
+        proof.serialize_uncompressed(&mut u_bytes).unwrap();
+        let proof_de = EquProof::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(proof, proof_de);
+    }
+
+    #[test]
     fn test_MSMEG1_proof_type() {
         let mut rng = test_rng();
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -665,6 +702,40 @@ mod tests {
     }
 
     #[test]
+    fn test_MSGMEG1_cproof_serde() {
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let xvars: Vec<G1Affine> = vec![
+            crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine(),
+            crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine(),
+        ];
+        let scalar_yvars: Vec<Fr> = vec![Fr::rand(&mut rng)];
+        let xcoms: Commit1<F> = batch_commit_G1(&xvars, &crs, &mut rng);
+        let scalar_ycoms: Commit2<F> = batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng);
+
+        let equ: MSMEG1<F> = MSMEG1::<F> {
+            a_consts: vec![crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine()],
+            b_consts: vec![Fr::rand(&mut rng), Fr::rand(&mut rng)],
+            gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
+            target: crs.g1_gen.mul(Fr::rand(&mut rng)).into_affine(),
+        };
+        let proof: EquProof<F> =
+            equ.prove(&xvars, &scalar_yvars, &xcoms, &scalar_ycoms, &crs, &mut rng);
+
+        // Serialize and deserialize the proof
+        let mut c_bytes = Vec::new();
+        proof.serialize_compressed(&mut c_bytes).unwrap();
+        let proof_de = EquProof::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(proof, proof_de);
+
+        let mut u_bytes = Vec::new();
+        proof.serialize_uncompressed(&mut u_bytes).unwrap();
+        let proof_de = EquProof::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(proof, proof_de);
+    }
+
+    #[test]
     fn test_MSMEG2_proof_type() {
         let mut rng = test_rng();
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -739,6 +810,40 @@ mod tests {
         let cproof2 = equ.commit_and_prove(&scalar_xvars, &yvars, &crs, &mut rng2);
 
         assert_eq!(cproof, cproof2);
+    }
+
+    #[test]
+    fn test_MSMEG2_proof_serde() {
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let scalar_xvars: Vec<Fr> = vec![Fr::rand(&mut rng), Fr::rand(&mut rng)];
+        let yvars: Vec<G2Affine> = vec![crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine()];
+        let scalar_xcoms: Commit1<F> = batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
+        let ycoms: Commit2<F> = batch_commit_G2(&yvars, &crs, &mut rng);
+
+        let equ: MSMEG2<F> = MSMEG2::<F> {
+            a_consts: vec![Fr::rand(&mut rng)],
+            b_consts: vec![
+                crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
+                crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
+            ],
+            gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
+            target: crs.g2_gen.mul(Fr::rand(&mut rng)).into_affine(),
+        };
+        let proof: EquProof<F> =
+            equ.prove(&scalar_xvars, &yvars, &scalar_xcoms, &ycoms, &crs, &mut rng);
+
+        // Serialize and deserialize the proof
+        let mut c_bytes = Vec::new();
+        proof.serialize_compressed(&mut c_bytes).unwrap();
+        let proof_de = EquProof::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(proof, proof_de);
+
+        let mut u_bytes = Vec::new();
+        proof.serialize_uncompressed(&mut u_bytes).unwrap();
+        let proof_de = EquProof::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(proof, proof_de);
     }
 
     #[test]
@@ -824,6 +929,45 @@ mod tests {
         let cproof2 = equ.commit_and_prove(&scalar_xvars, &scalar_yvars, &crs, &mut rng2);
 
         assert_eq!(cproof, cproof2);
+    }
+
+    #[test]
+    fn test_quadratic_proof_serde() {
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+
+        let scalar_xvars: Vec<Fr> = vec![Fr::rand(&mut rng), Fr::rand(&mut rng)];
+        let scalar_yvars: Vec<Fr> = vec![Fr::rand(&mut rng)];
+
+        let equ: QuadEqu<F> = QuadEqu::<F> {
+            a_consts: vec![Fr::rand(&mut rng)],
+            b_consts: vec![Fr::rand(&mut rng), Fr::rand(&mut rng)],
+            gamma: vec![vec![Fr::one()], vec![Fr::zero()]],
+            target: Fr::rand(&mut rng),
+        };
+
+        // Individually commit then prove
+        let scalar_xcoms: Commit1<F> = batch_commit_scalar_to_B1(&scalar_xvars, &crs, &mut rng);
+        let scalar_ycoms: Commit2<F> = batch_commit_scalar_to_B2(&scalar_yvars, &crs, &mut rng);
+        let proof: EquProof<F> = equ.prove(
+            &scalar_xvars,
+            &scalar_yvars,
+            &scalar_xcoms,
+            &scalar_ycoms,
+            &crs,
+            &mut rng,
+        );
+
+        // Serialize and deserialize the proof
+        let mut c_bytes = Vec::new();
+        proof.serialize_compressed(&mut c_bytes).unwrap();
+        let proof_de = EquProof::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(proof, proof_de);
+
+        let mut u_bytes = Vec::new();
+        proof.serialize_uncompressed(&mut u_bytes).unwrap();
+        let proof_de = EquProof::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(proof, proof_de);
     }
 }
 

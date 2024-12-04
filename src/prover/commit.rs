@@ -3,6 +3,7 @@
 #![allow(non_snake_case)]
 
 use ark_ec::pairing::Pairing;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{fmt::Debug, rand::Rng, UniformRand};
 
 use crate::data_structures::{col_vec_to_vec, vec_to_col_vec, Com1, Com2, Mat, Matrix, B1, B2};
@@ -14,13 +15,13 @@ pub trait Commit: Eq + Debug {
 }
 
 /// Contains both the commitment's values (as [`Com1`](crate::data_structures::Com1)) and its randomness.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Commit1<E: Pairing> {
     pub coms: Vec<Com1<E>>,
     pub(super) rand: Matrix<E::ScalarField>,
 }
 /// Contains both the commitment's values (as [`Com2`](crate::data_structures::Com2)) and its randomness.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Commit2<E: Pairing> {
     pub coms: Vec<Com2<E>>,
     pub(super) rand: Matrix<E::ScalarField>,
@@ -287,6 +288,50 @@ mod tests {
         ($gen:expr, $strnum:tt) => {
             $gen.mul(Fr::from_str($strnum).unwrap())
         };
+    }
+
+    #[test]
+    fn test_commit_serde() {
+        let mut rng = test_rng();
+        let crs = CRS::<F>::generate_crs(&mut rng);
+        let r1 = Fr::rand(&mut rng);
+        let r2 = Fr::rand(&mut rng);
+        let com1 = Commit1::<F> {
+            coms: vec![Com1::<F>(
+                crs.g1_gen.mul(r1).into_affine(),
+                crs.g1_gen.mul(r2).into_affine(),
+            )],
+            rand: vec![vec![r1, r2]],
+        };
+        let com2 = Commit2::<F> {
+            coms: vec![Com2::<F>(
+                crs.g2_gen.mul(r1).into_affine(),
+                crs.g2_gen.mul(r2).into_affine(),
+            )],
+            rand: vec![vec![r1, r2]],
+        };
+
+        // Serialize and deserialize the commitment 1
+        let mut c_bytes = Vec::new();
+        com1.serialize_compressed(&mut c_bytes).unwrap();
+        let com1_de = Commit1::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(com1, com1_de);
+
+        let mut u_bytes = Vec::new();
+        com1.serialize_uncompressed(&mut u_bytes).unwrap();
+        let com1_de = Commit1::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(com1, com1_de);
+
+        // Serialize and deserialize the commitment 2
+        let mut c_bytes = Vec::new();
+        com2.serialize_compressed(&mut c_bytes).unwrap();
+        let com2_de = Commit2::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+        assert_eq!(com2, com2_de);
+
+        let mut u_bytes = Vec::new();
+        com2.serialize_uncompressed(&mut u_bytes).unwrap();
+        let com2_de = Commit2::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+        assert_eq!(com2, com2_de);
     }
 
     #[test]

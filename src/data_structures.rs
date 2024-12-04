@@ -24,6 +24,7 @@ use ark_ec::{
     AffineRepr, CurveGroup,
 };
 use ark_ff::{Field, One, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
     fmt::Debug,
     iter::Sum,
@@ -124,11 +125,11 @@ pub trait BT<E: Pairing, C1: B1<E>, C2: B2<E>>: B<E> + From<Matrix<PairingOutput
 // SXDH instantiation's bilinear group for commitments
 
 /// Base [`B1`](crate::data_structures::B1) for the commitment group in the SXDH instantiation.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Com1<E: Pairing>(pub E::G1Affine, pub E::G1Affine);
 
 /// Extension [`B2`](crate::data_structures::B2) for the commitment group in the SXDH instantiation.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Com2<E: Pairing>(pub E::G2Affine, pub E::G2Affine);
 
 /// Target [`BT`](crate::data_structures::BT) for the commitment group in the SXDH instantiation.
@@ -1300,17 +1301,61 @@ mod tests {
         #[test]
         fn test_B2_scalar_mul() {
             let mut rng = test_rng();
-            let b = Com1::<F>(
-                G1Projective::rand(&mut rng).into_affine(),
-                G1Projective::rand(&mut rng).into_affine(),
+            let b = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine(),
             );
             let scalar = Fr::rand(&mut rng);
             let b0 = b.0.mul(scalar);
             let b1 = b.1.mul(scalar);
             let bres = b.scalar_mul(&scalar);
-            let bexp = Com1::<F>(b0.into_affine(), b1.into_affine());
+            let bexp = Com2::<F>(b0.into_affine(), b1.into_affine());
 
             assert_eq!(bres, bexp);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B1_serde() {
+            let mut rng = test_rng();
+            let a = Com1::<F>(
+                G1Projective::rand(&mut rng).into_affine(),
+                G1Projective::rand(&mut rng).into_affine(),
+            );
+
+            // Serialize and deserialize Com1.
+
+            let mut c_bytes = Vec::new();
+            a.serialize_compressed(&mut c_bytes).unwrap();
+            let a_de = Com1::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+            assert_eq!(a, a_de);
+
+            let mut u_bytes = Vec::new();
+            a.serialize_uncompressed(&mut u_bytes).unwrap();
+            let a_de = Com1::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+            assert_eq!(a, a_de);
+        }
+
+        #[allow(non_snake_case)]
+        #[test]
+        fn test_B2_serde() {
+            let mut rng = test_rng();
+            let a = Com2::<F>(
+                G2Projective::rand(&mut rng).into_affine(),
+                G2Projective::rand(&mut rng).into_affine(),
+            );
+
+            // Serialize and deserialize Com2.
+
+            let mut c_bytes = Vec::new();
+            a.serialize_compressed(&mut c_bytes).unwrap();
+            let a_de = Com2::<F>::deserialize_compressed(&c_bytes[..]).unwrap();
+            assert_eq!(a, a_de);
+
+            let mut u_bytes = Vec::new();
+            a.serialize_uncompressed(&mut u_bytes).unwrap();
+            let a_de = Com2::<F>::deserialize_uncompressed(&u_bytes[..]).unwrap();
+            assert_eq!(a, a_de);
         }
 
         #[allow(non_snake_case)]
