@@ -8,11 +8,11 @@
 use ark_ec::pairing::Pairing;
 
 use crate::data_structures::{
-    col_vec_to_vec, vec_to_col_vec, Com1, Com2, ComT, Mat, Matrix, B1, B2, BT,
+    B1, B2, BT, Com1, Com2, ComT, Mat, Matrix, col_vec_to_vec, vec_to_col_vec,
 };
 use crate::generator::CRS;
 use crate::prover::CProof;
-use crate::statement::{Equation, QuadEqu, MSMEG1, MSMEG2, PPE};
+use crate::statement::{Equation, MSMEG1, MSMEG2, PPE, QuadEqu};
 
 /// A collection of attributes containing verifier functionality for an [`Equation`](crate::statement::Equation).
 pub trait Verifiable<E: Pairing> {

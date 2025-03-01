@@ -20,8 +20,8 @@
 //! well.
 
 use ark_ec::{
-    pairing::{Pairing, PairingOutput},
     AffineRepr, CurveGroup,
+    pairing::{Pairing, PairingOutput},
 };
 use ark_ff::{Field, One, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -905,8 +905,8 @@ mod tests {
 
         use ark_bls12_381::Bls12_381 as F;
         use ark_ec::{
-            pairing::{Pairing, PairingOutput},
             AffineRepr, CurveGroup,
+            pairing::{Pairing, PairingOutput},
         };
         use ark_ff::UniformRand;
         use ark_std::ops::Mul;

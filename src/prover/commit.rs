@@ -4,9 +4,9 @@
 
 use ark_ec::pairing::Pairing;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{fmt::Debug, rand::Rng, UniformRand};
+use ark_std::{UniformRand, fmt::Debug, rand::Rng};
 
-use crate::data_structures::{col_vec_to_vec, vec_to_col_vec, Com1, Com2, Mat, Matrix, B1, B2};
+use crate::data_structures::{B1, B2, Com1, Com2, Mat, Matrix, col_vec_to_vec, vec_to_col_vec};
 use crate::generator::CRS;
 
 pub trait Commit: Eq + Debug {
@@ -327,7 +327,9 @@ mod tests {
 
     #[test]
     fn test_commit_append_com1() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
 
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -378,7 +380,9 @@ mod tests {
 
     #[test]
     fn test_commit_append_com2() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
 
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -429,7 +433,9 @@ mod tests {
 
     #[test]
     fn test_commit_G1_batching() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 
@@ -456,7 +462,9 @@ mod tests {
 
     #[test]
     fn test_commit_G2_batching() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 
@@ -484,7 +492,9 @@ mod tests {
 
     #[test]
     fn test_commit_scalar_B1_batching() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 
@@ -512,7 +522,9 @@ mod tests {
 
     #[test]
     fn test_commit_scalar_B2_batching() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 
