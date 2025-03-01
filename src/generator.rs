@@ -14,8 +14,8 @@
 use crate::data_structures::{Com1, Com2};
 
 use ark_ec::{
-    pairing::{Pairing, PairingOutput},
     CurveGroup,
+    pairing::{Pairing, PairingOutput},
 };
 use ark_ff::{UniformRand, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -121,7 +121,7 @@ impl<E: Pairing> AbstractCrs<E> for CRS<E> {
 #[cfg(test)]
 mod tests {
     use ark_bls12_381::Bls12_381 as F;
-    use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+    use ark_ec::{AffineRepr, CurveGroup, pairing::Pairing};
     use ark_ff::Zero;
     use ark_std::test_rng;
 
@@ -151,7 +151,9 @@ mod tests {
     #[allow(non_snake_case)]
     #[test]
     fn test_valid_binding_CRS() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 

@@ -4,8 +4,8 @@
 mod SXDH_commit_tests {
 
     use ark_bls12_381::Bls12_381 as F;
-    use ark_ec::pairing::Pairing;
     use ark_ec::CurveGroup;
+    use ark_ec::pairing::Pairing;
     use ark_ff::UniformRand;
     use ark_std::ops::Mul;
     use ark_std::test_rng;

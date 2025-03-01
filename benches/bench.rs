@@ -1,14 +1,14 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 use std::time::Duration;
 
 use ark_bls12_381::Bls12_381 as F;
 use ark_ec::{
-    pairing::{Pairing, PairingOutput},
     AffineRepr, CurveGroup,
+    pairing::{Pairing, PairingOutput},
 };
 use ark_ff::{One, UniformRand, Zero};
 use ark_std::ops::Mul;
@@ -16,13 +16,13 @@ use ark_std::str::FromStr;
 use ark_std::test_rng;
 
 use groth_sahai::{
+    AbstractCrs, B1, CRS, Com1, Mat, Matrix,
     prover::{
-        batch_commit_G1, batch_commit_G2, batch_commit_scalar_to_B1, batch_commit_scalar_to_B2,
-        CProof, Commit1, Commit2, Provable,
+        CProof, Commit1, Commit2, Provable, batch_commit_G1, batch_commit_G2,
+        batch_commit_scalar_to_B1, batch_commit_scalar_to_B2,
     },
     statement::PPE,
     verifier::Verifiable,
-    AbstractCrs, Com1, Mat, Matrix, B1, CRS,
 };
 
 type G1Projective = <F as Pairing>::G1;

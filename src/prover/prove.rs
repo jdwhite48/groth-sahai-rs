@@ -15,15 +15,15 @@
 use ark_ec::pairing::Pairing;
 use ark_ec::pairing::PairingOutput;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{rand::Rng, UniformRand};
+use ark_std::{UniformRand, rand::Rng};
 
 use super::commit::{
-    batch_commit_G1, batch_commit_G2, batch_commit_scalar_to_B1, batch_commit_scalar_to_B2,
-    Commit1, Commit2,
+    Commit1, Commit2, batch_commit_G1, batch_commit_G2, batch_commit_scalar_to_B1,
+    batch_commit_scalar_to_B2,
 };
-use crate::data_structures::{col_vec_to_vec, vec_to_col_vec, Com1, Com2, Mat, Matrix, B1, B2};
+use crate::data_structures::{B1, B2, Com1, Com2, Mat, Matrix, col_vec_to_vec, vec_to_col_vec};
 use crate::generator::CRS;
-use crate::statement::{EquType, QuadEqu, MSMEG1, MSMEG2, PPE};
+use crate::statement::{EquType, MSMEG1, MSMEG2, PPE, QuadEqu};
 
 /// A collection  of attributes containing prover functionality for an [`Equation`](crate::statement::Equation).
 pub trait Provable<E: Pairing, A1, A2, AT> {
@@ -536,7 +536,9 @@ mod tests {
 
     #[test]
     fn test_PPE_cproof_is_commit_and_prove() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -651,7 +653,9 @@ mod tests {
 
     #[test]
     fn test_MSMEG1_cproof_is_commit_and_prove() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
         let crs = CRS::<F>::generate_crs(&mut rng);

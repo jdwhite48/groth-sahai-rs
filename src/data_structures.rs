@@ -20,8 +20,8 @@
 //! well.
 
 use ark_ec::{
-    pairing::{Pairing, PairingOutput},
     AffineRepr, CurveGroup,
+    pairing::{Pairing, PairingOutput},
 };
 use ark_ff::{Field, One, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -125,15 +125,15 @@ pub trait BT<E: Pairing, C1: B1<E>, C2: B2<E>>: B<E> + From<Matrix<PairingOutput
 // SXDH instantiation's bilinear group for commitments
 
 /// Base [`B1`](crate::data_structures::B1) for the commitment group in the SXDH instantiation.
-#[derive(Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Com1<E: Pairing>(pub E::G1Affine, pub E::G1Affine);
 
 /// Extension [`B2`](crate::data_structures::B2) for the commitment group in the SXDH instantiation.
-#[derive(Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Com2<E: Pairing>(pub E::G2Affine, pub E::G2Affine);
 
 /// Target [`BT`](crate::data_structures::BT) for the commitment group in the SXDH instantiation.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct ComT<E: Pairing>(
     pub PairingOutput<E>,
     pub PairingOutput<E>,
@@ -167,16 +167,6 @@ macro_rules! impl_base_commit_groups {
     ) => {
         // Repeat for each $com
         $(
-            // Equality for Com group
-            impl<E: Pairing> PartialEq for $com<E> {
-
-                #[inline]
-                fn eq(&self, other: &Self) -> bool {
-                    self.0 == other.0 && self.1 == other.1
-                }
-            }
-            impl<E: Pairing> Eq for $com<E> {}
-
             // Addition for Com group
             impl<E: Pairing> Add<$com<E>> for $com<E> {
                 type Output = Self;
@@ -388,13 +378,6 @@ impl<E: Pairing> B2<E> for Com2<E> {
 }
 
 // ComT<Com1, Com2> is an instantiation of BT<B1, B2>
-impl<E: Pairing> PartialEq for ComT<E> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1 && self.2 == other.2 && self.3 == other.3
-    }
-}
-impl<E: Pairing> Eq for ComT<E> {}
 
 impl<E: Pairing> Add<ComT<E>> for ComT<E> {
     type Output = Self;
@@ -922,8 +905,8 @@ mod tests {
 
         use ark_bls12_381::Bls12_381 as F;
         use ark_ec::{
-            pairing::{Pairing, PairingOutput},
             AffineRepr, CurveGroup,
+            pairing::{Pairing, PairingOutput},
         };
         use ark_ff::UniformRand;
         use ark_std::ops::Mul;

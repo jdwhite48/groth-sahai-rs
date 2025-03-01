@@ -8,7 +8,7 @@ mod SXDH_prover_tests {
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_std::ops::Mul;
     use ark_std::str::FromStr;
-    use ark_std::{test_rng, UniformRand, Zero};
+    use ark_std::{UniformRand, Zero, test_rng};
 
     use groth_sahai::data_structures::*;
     use groth_sahai::prover::*;

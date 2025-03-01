@@ -4,9 +4,9 @@
 
 use ark_ec::pairing::Pairing;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{fmt::Debug, rand::Rng, UniformRand};
+use ark_std::{UniformRand, fmt::Debug, rand::Rng};
 
-use crate::data_structures::{col_vec_to_vec, vec_to_col_vec, Com1, Com2, Mat, Matrix, B1, B2};
+use crate::data_structures::{B1, B2, Com1, Com2, Mat, Matrix, col_vec_to_vec, vec_to_col_vec};
 use crate::generator::CRS;
 
 pub trait Commit: Eq + Debug {
@@ -15,13 +15,13 @@ pub trait Commit: Eq + Debug {
 }
 
 /// Contains both the commitment's values (as [`Com1`](crate::data_structures::Com1)) and its randomness.
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Commit1<E: Pairing> {
     pub coms: Vec<Com1<E>>,
     pub(super) rand: Matrix<E::ScalarField>,
 }
 /// Contains both the commitment's values (as [`Com2`](crate::data_structures::Com2)) and its randomness.
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Commit2<E: Pairing> {
     pub coms: Vec<Com2<E>>,
     pub(super) rand: Matrix<E::ScalarField>,
@@ -30,15 +30,6 @@ pub struct Commit2<E: Pairing> {
 macro_rules! impl_com {
     ($( $commit:ident ),*) => {
         $(
-            impl<E: Pairing> PartialEq for $commit<E> {
-
-                #[inline]
-                fn eq(&self, other: &Self) -> bool {
-                    self.coms == other.coms && self.rand == other.rand
-                }
-            }
-            impl<E: Pairing> Eq for $commit<E> {}
-
             impl<E: Pairing> Commit for $commit<E> {
                 fn append(&mut self, other: &mut Self) {
                     // One row of random values per committed value
@@ -336,7 +327,9 @@ mod tests {
 
     #[test]
     fn test_commit_append_com1() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
 
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -387,7 +380,9 @@ mod tests {
 
     #[test]
     fn test_commit_append_com2() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
 
         let crs = CRS::<F>::generate_crs(&mut rng);
@@ -438,7 +433,9 @@ mod tests {
 
     #[test]
     fn test_commit_G1_batching() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 
@@ -465,7 +462,9 @@ mod tests {
 
     #[test]
     fn test_commit_G2_batching() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 
@@ -493,7 +492,9 @@ mod tests {
 
     #[test]
     fn test_commit_scalar_B1_batching() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 
@@ -521,7 +522,9 @@ mod tests {
 
     #[test]
     fn test_commit_scalar_B2_batching() {
-        std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        unsafe {
+            std::env::set_var("DETERMINISTIC_TEST_RNG", "1");
+        }
         let mut rng = test_rng();
         let mut rng2 = test_rng();
 
