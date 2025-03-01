@@ -22,8 +22,9 @@ pub trait Verifiable<E: Pairing> {
 
 impl<E: Pairing> Verifiable<E> for PPE<E> {
     fn verify(&self, com_proof: &CProof<E>, crs: &CRS<E>) -> bool {
-        assert_eq!(com_proof.equ_proofs.len(), 1);
-        assert_eq!(self.get_type(), com_proof.equ_proofs[0].equ_type);
+        for i in 0..com_proof.equ_proofs.len() {
+            assert_eq!(self.get_type(), com_proof.equ_proofs[i].equ_type);
+        }
         let is_parallel = true;
 
         let lin_a_com_y = ComT::<E>::pairing_sum(

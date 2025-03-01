@@ -8,3 +8,4 @@ pub mod gadgets;
 pub use crate::data_structures::*;
 pub use crate::generator::*;
 pub use crate::statement::EquType;
+pub use gadgets::*;
