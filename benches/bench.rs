@@ -13,6 +13,7 @@ criterion_main!(
     bls12_gs_over_groth16_commit,
     bls12_gs_over_groth16_proof,
     bls12_gs_over_groth16_verify,
+    bls12_plain_groth16_verify,
     bn254_bilinear_group_arith,
     bn254_pairing,
     bn254_commit

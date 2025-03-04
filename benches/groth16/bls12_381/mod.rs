@@ -6,7 +6,8 @@ use ark_ff::{PrimeField, Field};
 use ark_groth16::{
     Groth16,
     Proof as Groth16Proof,
-    VerifyingKey as Groth16VerifyingKey
+    VerifyingKey as Groth16VerifyingKey,
+    PreparedVerifyingKey as Groth16PreparedVerifyingKey,
 };
 
 use ark_std::{
@@ -46,6 +47,7 @@ type G16 = Groth16::<Bls12_381>;
 type G16Proof = Groth16Proof<Bls12_381>;
 //type G16ProvingKey = Groth16ProvingKey<Bls12_381>;
 type G16VerifyingKey = Groth16VerifyingKey<Bls12_381>;
+type G16PreparedVerifyingKey = Groth16PreparedVerifyingKey<Bls12_381>;
 type GSCrs = CRS::<Bls12_381>;
 type Fr = <Bls12_381 as Pairing>::ScalarField;
 type G1 = <Bls12_381 as Pairing>::G1;
@@ -74,6 +76,46 @@ impl<ConstraintF: PrimeField> ConstraintSynthesizer<ConstraintF>
         let c2 = a + b;
         c.enforce_equal(&c2)?;
         Ok(())
+    }
+}
+
+macro_rules! make_plain_g16_verify_bench {
+    ($num_proofs: expr, $bench_name: ident) => {
+        pub fn $bench_name(c: &mut Criterion) {
+
+            let mut g = c.benchmark_group("BLS12-381/Groth16");
+
+            let mut rng = StdRng::seed_from_u64(test_rng().next_u64());
+
+            let a = Fr::from(1337u32);
+            let b = Fr::rand(&mut rng);
+            let c = a + b;
+            let public_inputs = [a.clone()];
+            let circuit = TestCircuit {a, b, c};
+
+
+            let mut g16_proofs: Vec<(G16PreparedVerifyingKey, G16Proof)> = Vec::with_capacity($num_proofs);
+            for _ in 0..$num_proofs {
+                let (pk, vk) = G16::circuit_specific_setup(circuit.clone(), &mut rng).unwrap();
+                let g16_proof = G16::prove(&pk, circuit.clone(), &mut rng).unwrap();
+                let pvk = ark_groth16::prepare_verifying_key(&vk);
+                g16_proofs.push((pvk, g16_proof));
+            }
+
+            g.bench_function(format!("verify {} plain Groth16 equations", $num_proofs), |b| {
+                b.iter(|| {
+                    for i in 0..$num_proofs {
+                        let _g16_verifies = G16::verify_with_processed_vk(
+                            &g16_proofs[i].0,
+                            &public_inputs,
+                            &g16_proofs[i].1,
+                        ).unwrap();
+                    }
+                })
+            });
+
+            g.finish();
+        }
     }
 }
 
@@ -106,7 +148,7 @@ macro_rules! make_gs_g16_commit_bench {
             // Now do a GS-over-canon-Groth16 and verify that (does not hide public inputs)
             let crs = GSCrs::generate_crs(&mut rng);
 
-            g.bench_function(format!("commit {} equations satisfied", $num_proofs), |b| {
+            g.bench_function(format!("commit {} proofs", $num_proofs), |b| {
                 b.iter(|| {
                     let _xcoms = batch_commit_G1(&xvars, &crs, &mut rng);
                     let _ycoms = batch_commit_G2(&yvars, &crs, &mut rng);
@@ -317,4 +359,19 @@ criterion_group!(
     bench_bls12_gs_over_groth16_verify_50,
 );
 
-criterion_main!(bls12_gs_over_groth16_commit, bls12_gs_over_groth16_proof, bls12_gs_over_groth16_verify);
+make_plain_g16_verify_bench!(1, bench_bls12_plain_groth16_verify_1);
+make_plain_g16_verify_bench!(5, bench_bls12_plain_groth16_verify_5);
+make_plain_g16_verify_bench!(10, bench_bls12_plain_groth16_verify_10);
+make_plain_g16_verify_bench!(25, bench_bls12_plain_groth16_verify_25);
+make_plain_g16_verify_bench!(50, bench_bls12_plain_groth16_verify_50);
+
+criterion_group!(
+    bls12_plain_groth16_verify,
+    bench_bls12_plain_groth16_verify_1,
+    bench_bls12_plain_groth16_verify_5,
+    bench_bls12_plain_groth16_verify_10,
+    bench_bls12_plain_groth16_verify_25,
+    bench_bls12_plain_groth16_verify_50,
+);
+
+criterion_main!(bls12_gs_over_groth16_commit, bls12_gs_over_groth16_proof, bls12_gs_over_groth16_verify, bls12_plain_groth16_verify);
