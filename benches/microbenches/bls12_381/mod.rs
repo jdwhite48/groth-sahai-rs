@@ -7,6 +7,7 @@ use ark_ec::{
     CurveGroup,
 };
 use ark_ff::UniformRand;
+use crate::util::*;
 
 use ark_bls12_381::Bls12_381 as F;
 type G1Projective = <F as Pairing>::G1;
@@ -31,6 +32,7 @@ pub fn bench_bls12_field_arith(c: &mut Criterion) {
 
     let r1 = Fr::rand(&mut rng);
     let r2 = Fr::rand(&mut rng);
+    record_size("BLS12-381 scalar field size", &r1);
 
     g.bench_function("scalar field add", |b| {
         b.iter(|| {
@@ -92,8 +94,11 @@ pub fn bench_bls12_group_add(c: &mut Criterion) {
 
     let mut rng = ark_std::test_rng();
 
-    let a1 = G1Projective::rand(&mut rng).into_affine();
+    let a1proj = G1Projective::rand(&mut rng);
+    let a1 = a1proj.into_affine();
     let b1 = G1Projective::rand(&mut rng).into_affine();
+    record_size("BLS12-381 G1 projective size", &a1proj);
+    record_size("BLS12-381 G1 affine size", &a1);
 
     g.bench_function("G1 add", |b| {
         b.iter(|| {
@@ -101,8 +106,11 @@ pub fn bench_bls12_group_add(c: &mut Criterion) {
         })
     });
 
-    let a2 = G2Projective::rand(&mut rng).into_affine();
+    let a2proj = G2Projective::rand(&mut rng);
+    let a2 = a2proj.into_affine();
     let b2 = G2Projective::rand(&mut rng).into_affine();
+    record_size("BLS12-381 G2 projective size", &a2proj);
+    record_size("BLS12-381 G2 affine size", &a2);
 
     g.bench_function("G2 add", |b| {
         b.iter(|| {
@@ -112,6 +120,7 @@ pub fn bench_bls12_group_add(c: &mut Criterion) {
 
     let at = <F as Pairing>::pairing(a1, a2);
     let bt = <F as Pairing>::pairing(b1, b2);
+    record_size("BLS12-381 GT size", &at);
 
     g.bench_function("GT add", |b| {
         b.iter(|| {
@@ -194,6 +203,7 @@ pub fn bench_bls12_commit_group_add(c: &mut Criterion) {
     let a12 = G1Projective::rand(&mut rng).into_affine();
     let b12 = G1Projective::rand(&mut rng).into_affine();
     let c12 = Com1::<F>(a12, b12);
+    record_size("BLS12-381 Com1 size", &c11);
 
     g.bench_function("G1 commit group add", |b| {
         b.iter(|| {
@@ -207,6 +217,7 @@ pub fn bench_bls12_commit_group_add(c: &mut Criterion) {
     let a22 = G2Projective::rand(&mut rng).into_affine();
     let b22 = G2Projective::rand(&mut rng).into_affine();
     let c22 = Com2::<F>(a22, b22);
+    record_size("BLS12-381 Com2 size", &c21);
 
     g.bench_function("G2 commit group add", |b| {
         b.iter(|| {
@@ -216,6 +227,7 @@ pub fn bench_bls12_commit_group_add(c: &mut Criterion) {
 
     let ct1 = ComT::pairing(c11, c21);
     let ct2 = ComT::pairing(c12, c22);
+    //record_size("BLS12-381 ComT size", &ct1);
 
     g.bench_function("GT commit group add", |b| {
         b.iter(|| {
@@ -256,6 +268,7 @@ pub fn bench_bls12_commit(c: &mut Criterion) {
     let mut rng = ark_std::test_rng();
 
     let crs = CRS::<F>::generate_crs(&mut rng);
+    record_size("BLS12-381 GS CRS size", &crs);
 
     let a1 = G1Projective::rand(&mut rng).into_affine();
 

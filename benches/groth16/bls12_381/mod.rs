@@ -42,6 +42,7 @@ use groth_sahai::{
 };
 #[cfg(feature = "groth16")]
 use groth_sahai::gadgets::groth16::*;
+use crate::util::*;
 
 type G16 = Groth16::<Bls12_381>;
 type G16Proof = Groth16Proof<Bls12_381>;
@@ -100,6 +101,10 @@ macro_rules! make_plain_g16_verify_bench {
                 let g16_proof = G16::prove(&pk, circuit.clone(), &mut rng).unwrap();
                 let pvk = ark_groth16::prepare_verifying_key(&vk);
                 g16_proofs.push((pvk, g16_proof));
+            }
+            if $num_proofs == 1 {
+                record_size("BLS12-381 Groth16 prepared verification key size", &g16_proofs[0].0);
+                record_size("BLS12-381 Groth16 proof size", &g16_proofs[0].1);
             }
 
             g.bench_function(format!("verify {} plain Groth16 equations", $num_proofs), |b| {
@@ -188,6 +193,7 @@ macro_rules! make_gs_g16_proof_bench {
 
             // TODO: some cursed re-storing entries as its references to deal with mid API
             let g16_refs: Vec<(&G16Proof, &G16VerifyingKey, &G1)> = g16_proofs.iter().map(|(pf, vk, pi)| (pf, vk, pi)).collect::<Vec<_>>();
+
             // Now do a GS-over-canon-Groth16 and verify that (does not hide public inputs)
             let crs = GSCrs::generate_crs(&mut rng);
 
@@ -240,6 +246,12 @@ macro_rules! make_gs_g16_verify_bench {
             let crs = GSCrs::generate_crs(&mut rng);
 
             let gs_proofs = prove_groth16_equations_sat::<Bls12_381, _>(&g16_refs[..], &crs, &mut rng);
+            if $num_proofs == 1 {
+            }
+
+            record_size(format!("BLS12-381 GS-over-Groth16 {} equation Com1 size", $num_proofs), &gs_proofs.xcoms.coms);
+            record_size(format!("BLS12-381 GS-over-Groth16 {} equation Com2 size", $num_proofs), &gs_proofs.ycoms.coms);
+            record_size(format!("BLS12-381 GS-over-Groth16 {} equation proof size", $num_proofs), &gs_proofs.equ_proofs);
 
             g.bench_function(format!("verify {} equations satisfied", $num_proofs), |b| {
                 b.iter(|| {
@@ -255,64 +267,6 @@ macro_rules! make_gs_g16_verify_bench {
         }
     }
 }
-
-/*
-pub fn bench_bls12_gs_over_groth16_verify(c: &mut Criterion) {
-
-    let mut g = c.benchmark_group("BLS12-381/Groth16");
-
-    let mut rng = StdRng::seed_from_u64(test_rng().next_u64());
-
-    let a = Fr::from(1337u32);
-    let b = Fr::rand(&mut rng);
-    let c = a + b;
-    let public_inputs = [a.clone()];
-    let circuit = TestCircuit {a, b, c};
-
-    let (pk, vk) = G16::circuit_specific_setup(circuit.clone(), &mut rng).unwrap();
-    let g16_proof = G16::prove(&pk, circuit.clone(), &mut rng).unwrap();
-
-    let pvk = ark_groth16::prepare_verifying_key(&vk);
-
-    let verifies = G16::verify_proof(&pvk, &g16_proof, &public_inputs).unwrap();
-    assert!(verifies);
-
-    // Now do a GS-over-canon-Groth16 and verify that (does not hide public inputs)
-    let crs = GSCrs::generate_crs(&mut rng);
-    let prep_inputs = G16::prepare_inputs(&pvk, &public_inputs).unwrap();
-
-    let gs_proofs = prove_groth16_equations_sat::<Bls12_381, _>(
-        &[
-            (&g16_proof, &vk, &prep_inputs),
-        ],
-        &crs,
-        &mut rng,
-    );
-
-    g.bench_function("verify 1 equation satisfied", |b| {
-        b.iter(|| {
-            verify_groth16_equations_sat::<Bls12_381>(
-                &[
-                    (&vk, &prep_inputs),
-                ],
-                &gs_proofs,
-                &crs
-            );
-        })
-    });
-
-    g.finish();
-}
-*/
-
-/*
-criterion_group! {
-    name = bls12_pairing;
-    config = Criterion::default().measurement_time(Duration::new(6, 0));
-    targets =
-        bench_bls12_pairing_eval,
-}
-*/
 
 make_gs_g16_commit_bench!(1, bench_bls12_gs_over_groth16_commit_1);
 make_gs_g16_commit_bench!(5, bench_bls12_gs_over_groth16_commit_5);

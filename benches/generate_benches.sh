@@ -18,6 +18,8 @@ echo "Compiling new benchmark target ..."
 cargo bench --all-features --quiet --no-run
 
 echo "Generating new benchmarks (this may take a few minutes) ..."
+mkdir logs
+echo "description,size (B),compressed size (B)" >> ./logs/sizes.csv
 cargo bench --all-features --quiet
 # Benchmark groups:
 # cargo bench "BLS12-381/Microbenchmarks"
@@ -26,5 +28,4 @@ cargo bench --all-features --quiet
 # cargo bench "BN254/Groth16" # (requires crate feature "groth16")
 
 echo "Extracting benchmark data from target/ reports ..."
-mkdir logs
 python3 extract_benches.py

@@ -40,13 +40,8 @@ def extract_benchmarks():
         if bench_label == "report":
             # Ignore list page of all benchmarks
             continue
-<<<<<<< Updated upstream
-        print("Extracting benchmark group...", bench_label)
+        print("Extracting benchmark group", bench_label, "...")
         bench_group = os.path.join(target_dir, bench_label)
-=======
-        print("Extracting benchmark group", f, "...")
-        bench_group = os.path.join(rootdir, f)
->>>>>>> Stashed changes
 
         # TODO: Directory check for group vs. standalone benchmark
         bench_logname = os.path.join("logs", "%s_time.csv" % bench_label)
@@ -60,20 +55,11 @@ def extract_benchmarks():
             if bench == "report":
                 # Ignore raw json and etc. within each benchmark
                 continue
-
-<<<<<<< Updated upstream
-            print("Extracting benchmark...", bench)
+            print("Extracting benchmark", bench, "...")
             bench_report = os.path.join(bench_group, bench, "report", "index.html")
             record_benchmark(bench, bench_report, bench_log)
         bench_log.close()
         print("Generated benchmark group logfile at %s:\n" % bench_logname)
-=======
-            print("Extracting benchmark", d, "...")
-            bench_report = os.path.join(bench_group, d, "report/index.html")
-            record_benchmark(d, bench_report, bench_log)
-        bench_log.close()
-        print(f + " table saved at ./" + bench_logname + " !\n")
->>>>>>> Stashed changes
         df = pd.read_csv(bench_logname, index_col=0)
         print(df)
 
