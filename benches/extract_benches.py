@@ -6,8 +6,11 @@
 """
 
 import os
+import re
+import sys
 import numpy as np
 import pandas as pd
+
 
 target_dir = "../target/criterion/"
 bench_lognames = []
@@ -19,14 +22,16 @@ EMPTY_ENTRY = " "
 
 # Alternatively, filled curves for commit and commit-and-prove via Criterion benchmarks
 
-
 def main():
     # Ensure pandas formats floats with 5 significant figures
     pd.set_option('display.float_format', lambda x: "%.5g" % x)
-    extract_benchmarks()
+    verbose = False
+    if sys.argv[1:] and sys.argv[1] == "verbose":
+        verbose = True
+    extract_benchmarks(verbose)
 
 
-def extract_benchmarks():
+def extract_benchmarks(verbose=False):
     """
         Generate csv files containing the benchmarks, assuming the following:
             - `cargo bench` has already been run, and is in target/criterion
@@ -48,20 +53,22 @@ def extract_benchmarks():
         bench_lognames.append(bench_logname)
 
         bench_log = open(bench_logname, "wt")
-        bench_log.write("%s (ms),mean_low,mean_est,mean_hi,sd_low,sd_est,sd_hi,med_low,med_est,med_hi,MAD_low,MAD_est,MAD_hi,R\xb2_low,R\xb2_est,R\xb2_hi,Slope_low,Slope_est,Slope_hi\n" % bench_label)
+        bench_log.write("%s (ms),iterations,mean_low,mean_est,mean_hi,sd_low,sd_est,sd_hi,med_low,med_est,med_hi,MAD_low,MAD_est,MAD_hi,R\xb2_low,R\xb2_est,R\xb2_hi,Slope_low,Slope_est,Slope_hi\n" % bench_label)
         group_benches = os.listdir(bench_group)
         group_benches.sort()
         for bench in group_benches:
             if bench == "report":
                 # Ignore raw json and etc. within each benchmark
                 continue
-            print("Extracting benchmark", bench, "...")
+            if verbose:
+                print("Extracting benchmark", bench, "...")
             bench_report = os.path.join(bench_group, bench, "report", "index.html")
             record_benchmark(bench, bench_report, bench_log)
         bench_log.close()
-        print("Generated benchmark group logfile at %s:\n" % bench_logname)
+        print("Generated benchmark group logfile at %s." % bench_logname)
         df = pd.read_csv(bench_logname, index_col=0)
-        print(df)
+        if verbose:
+            print(df)
 
 
 def record_benchmark(name, report, log):
@@ -86,7 +93,12 @@ def record_benchmark(name, report, log):
     if normalize_time_to_ms:
         row = np.vectorize(time_convert_ms)(row)
     # Write benchmark as single row to logfile
-    log.write("%s,%s\n" % (name, ",".join(row)))
+    num_iter = re.search(r'\s+(?P<iter>\d+)\s+', name)
+    if num_iter is None:
+        num_iter = "NaN"
+    else:
+        num_iter = num_iter["iter"]
+    log.write("%s,%s,%s\n" % (name, num_iter, ','.join(row)))
 
 
 def time_convert_ms(str_time):
@@ -112,8 +124,6 @@ def time_convert_ms(str_time):
         # Unitless value (e.g. R^2) will be left alone
         # EMPTY_ENTRY (e.g. missing Slope) returns EMPTY_ENTRY
         return unit_val
-
-    # print("%s <-> %.5g ms" % (str_time, conv_val))
 
     # Preserve sig. fig. precision when converting back into string
     return "%.5g" % conv_val

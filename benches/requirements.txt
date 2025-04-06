@@ -1,7 +1,14 @@
+contourpy==1.3.1
+cycler==0.12.1
+fonttools==4.56.0
+kiwisolver==1.4.8
 lxml==5.3.1
+matplotlib==3.10.1
 numpy==2.1.3
 pandas==2.2.3
 python-dateutil==2.9.0.post0
 pytz==2022.1
+seaborn==0.13.2
 six==1.16.0
 tzdata==2025.1
+

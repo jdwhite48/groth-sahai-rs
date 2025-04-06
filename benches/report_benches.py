@@ -7,69 +7,146 @@
 """
 
 import os
+import sys
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
-rootdir = "./logs"
-bench_lognames = []
-
-EMPTY_ENTRY = " "
-
-# TODO: Extract microbenchmarks' mean_est, sd_est times as reference
+logs_dir = os.path.join('.', 'logs')
 
 # TODO: Microbenchmark random number generation for Fr
-
 # TODO: Infer and report estimated / ideal times for our own reference, computed based on known dominant underlying computations
 # TODO: Gather good sources attesting to this ^ (e.g. from DJB, Nigel Smart's Pairings for Cryptographers, OG papers for the fields & GS...)
 
-# TODO: Proof generation time graph as **Groth-Sahai Overhead** for each field impl., with commit and commit-and-prove stack-line graph
-
-# TODO: Render confidence interval of points as either error bars or (better) shaded confidence interval using pantas.melt + pyplot.fill_between / seaborn.lineplot
 # See also: https://stackoverflow.com/questions/59747313/how-can-i-plot-a-confidence-interval-in-python
 # https://seaborn.pydata.org/generated/seaborn.lineplot.html
 
-# TODO: Verification time graphs for each field impl., with separate line for plain Groth16?
-
-# TODO: Figure out how to obtain and report (serialized) proof size / communication complexity
-
-
-
-
-#bench_log.write("%s (ms),mean_low,mean_est,mean_hi,sd_low,sd_est,sd_hi,med_low,med_est,med_hi,MAD_low,MAD_est,MAD_hi,R\xb2_low,R\xb2_est,R\xb2_hi,Slope_low,Slope_est,Slope_hi\n" % bench_label)
+# Column labels: %s (ms),mean_low,mean_est,mean_hi,sd_low,sd_est,sd_hi,med_low,med_est,med_hi,MAD_low,MAD_est,MAD_hi,R\xb2_low,R\xb2_est,R\xb2_hi,Slope_low,Slope_est,Slope_hi
 
 def main():
     # Ensure pandas formats floats with 5 significant figures
     pd.set_option('display.float_format', lambda x: "%.5g" % x)
+    verbose = False
+    if sys.argv[1:] and sys.argv[1] == "verbose":
+        verbose = True
+    report_benchmarks(verbose)
 
 
-def time_convert_ms(str_time):
-    # Format from criterion.rs report: "<float> <unit>" if time, or "<float>" if not
-    unit_val, unit = (str_time + " ").split(" ", 1)
-    if "ps" in unit:
-        # 10^-12 -> 10^-3
-        conv_val = float(unit_val) * pow(10.0, -9)
-    elif "ns" in unit:
-        # 10^-9 -> 10^-3
-        conv_val = float(unit_val) * pow(10.0, -6)
-    elif "µs" in unit:
-        # 10^-6 --> 10^-3
-        conv_val = float(unit_val) * pow(10.0, -3)
-    elif "ms" in unit:
-        # 10^-3 --> 10^-3
-        conv_val = float(unit_val) * pow(10.0, 0)
-    elif "s" in unit:
-        # 10^0 --> 10^-3
-        conv_val = float(unit_val) * pow(10.0, 3)
-    elif unit.strip() == "" or unit.strip() == EMPTY_ENTRY:
-        # Unitless value (e.g. R^2) will be left alone
-        # EMPTY_ENTRY (e.g. missing Slope) returns EMPTY_ENTRY
-        return unit_val
+def report_benchmarks(verbose=False):
+    sns.set_theme(style="darkgrid")
 
-    # print("%s <-> %.5g ms" % (str_time, conv_val))
+    #for bench_logname in os.listdir(logs_dir):
+    #if bench_logname == "sizes.csv":
+    #    continue
+    g16_time_bench_path = os.path.join(logs_dir, 'BLS12-381_Groth16_time.csv')
+    report_groth16_prove_benchmarks(g16_time_bench_path, verbose)
+    report_groth16_verify_benchmarks(g16_time_bench_path, verbose)
+    report_groth16_size_benchmarks(os.path.join(logs_dir, 'sizes.csv'), verbose)
 
-    # Preserve floating point precision when converting back into string
-    return "%.5g" % conv_val
+def report_groth16_prove_benchmarks(bench_path, verbose=False):
 
+    print("Generating proof generation time graph for benchmark group", bench_path, "...")
+
+    df = pd.read_csv(bench_path, index_col=0)
+
+    #clean up commit-and-prove to make a stack lineplot
+    gs_commit_df = df.filter(regex='commit \d+ proofs', axis=0).assign(Operation = 'Commit').sort_values(by='iterations')#.set_index(['iterations'])
+    if verbose:
+        print(gs_commit_df)
+    gs_prove_df = df.filter(regex='commit and prove \d+ equations satisfied', axis=0).assign(Operation = 'Commit and Prove').sort_values(by='iterations')#.set_index(['iterations'])
+    if verbose:
+        print(gs_prove_df)
+    gs_cprove_df = pd.concat([gs_commit_df, gs_prove_df], ignore_index=True)
+    print(gs_cprove_df[['iterations', 'Operation', 'mean_low', 'mean_est', 'mean_hi']])
+
+    fig = sns.lineplot(data=gs_cprove_df, x=gs_cprove_df.iterations, y='mean_est', hue='Operation', hue_order=['Commit', 'Commit and Prove'], style='Operation', markers=True, dashes=[(3,3),(1,5)], legend='full')
+    fig.fill_between(gs_commit_df.iterations, gs_commit_df['mean_low'], gs_commit_df['mean_hi'], alpha=0.3)
+    fig.fill_between(gs_prove_df.iterations, gs_prove_df['mean_low'], gs_prove_df['mean_hi'], alpha=0.3, color=sns.color_palette()[1])
+    fig.set(xlabel='# Groth16 Equations', ylabel='Time (ms)', title='Groth-Sahai over Groth16 Proof Generation Time (BLS12-381)')
+    fig.set_xlim(xmin=0, xmax=55)
+
+    plt.savefig(bench_path.replace('time.csv', 'proof_time.png'))
+
+    fig.clear()
+
+def report_groth16_verify_benchmarks(bench_path, verbose=False):
+
+    print("Generating verification time graph for benchmark group", bench_path, "...")
+
+    df = pd.read_csv(bench_path, index_col=0)
+
+    g16_ver_df = df.filter(regex='verify \d+ plain Groth16 equations', axis=0).assign(Operation = 'Groth16 Verify').sort_values(by='iterations')#.set_index(['iterations'])
+    if verbose:
+        print(g16_ver_df)
+    gs_ver_df = df.filter(regex='verify \d+ equations satisfied', axis=0).assign(Operation = 'GS over Groth16 Verify').sort_values(by='iterations')#.set_index(['iterations'])
+    if verbose:
+        print(gs_ver_df)
+    ver_df = pd.concat([g16_ver_df, gs_ver_df], ignore_index=True)
+
+    print(ver_df[['iterations', 'Operation', 'mean_low', 'mean_est', 'mean_hi']])
+
+    fig = sns.lineplot(data=ver_df, x=ver_df.iterations, y='mean_est', hue='Operation', hue_order=['Groth16 Verify', 'GS over Groth16 Verify'], style='Operation', markers=True, dashes=[(3,3),(1,5)], legend='full')
+    fig.fill_between(g16_ver_df.iterations, g16_ver_df['mean_low'], g16_ver_df['mean_hi'], alpha=0.3)
+    fig.fill_between(gs_ver_df.iterations, gs_ver_df['mean_low'], gs_ver_df['mean_hi'], alpha=0.3) #, color=sns.color_palette()[1])
+    fig.set(xlabel='# Groth16 Equations', ylabel='Time (ms)', title='Groth-Sahai over Groth16 Verification Time (BLS12-381)')
+    fig.set_xlim(xmin=0, xmax=55)
+
+    plt.savefig(bench_path.replace('time.csv', 'verify_time.png'))
+
+    fig.clear()
+
+def report_groth16_size_benchmarks(bench_path, verbose=False):
+
+    print("Generating proof size graph for benchmark group", bench_path, "...")
+
+    df = pd.read_csv(bench_path, index_col=0)
+
+    gs_com1_df = df.filter(regex='BLS12-381 GS-over-Groth16 \d+ equation Com1 size', axis=0).assign(Value = 'Com1').drop_duplicates()
+    gs_com1_df['iterations'] = pd.to_numeric(gs_com1_df.index.str.extract('BLS12-381 GS-over-Groth16 (\d+) equation Com1 size')[0]).to_numpy()
+    gs_com1_df.sort_values(by='iterations')
+    if verbose:
+        print(gs_com1_df)
+
+    gs_com2_df = df.filter(regex='BLS12-381 GS-over-Groth16 \d+ equation Com2 size', axis=0).assign(Value = 'Com2').drop_duplicates()
+    gs_com2_df['iterations'] = pd.to_numeric(gs_com2_df.index.str.extract('BLS12-381 GS-over-Groth16 (\d+) equation Com2 size')[0]).to_numpy()
+    gs_com2_df.sort_values(by='iterations')
+    if verbose:
+        print(gs_com2_df)
+
+    gs_proof_df = df.filter(regex='BLS12-381 GS-over-Groth16 \d+ equation proof size', axis=0).assign(Value = 'Proof').drop_duplicates()
+    gs_proof_df['iterations'] = pd.to_numeric(gs_proof_df.index.str.extract('BLS12-381 GS-over-Groth16 (\d+) equation proof size')[0]).to_numpy()
+    gs_proof_df.sort_values(by='iterations')
+    if verbose:
+        print(gs_proof_df)
+
+    size_df = pd.concat([gs_com1_df, gs_com2_df, gs_proof_df], ignore_index=True)
+
+    print(size_df[['iterations', 'Value', 'size (B)', 'compressed size (B)']])
+
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+
+    sns.lineplot(data=size_df, x=size_df.iterations, y='size (B)', hue='Value', hue_order=['Com1', 'Com2', 'Proof'], style='Value', markers=True, dashes=True, legend='full', ax=ax1)
+    sns.lineplot(data=size_df, x=size_df.iterations, y='compressed size (B)', hue='Value', hue_order=['Com1', 'Com2', 'Proof'], style='Value', markers=True, dashes=True, legend='full', ax=ax2, palette=sns.color_palette('pastel')[:3])
+    fig.suptitle('Groth-Sahai over Groth16 Proof Size (BLS12-381)')
+    ax1.set_xlabel('# Groth16 Equations')
+    ax1.set_ylabel('Size (KB)')
+    ax1.get_legend().set_title("Uncompressed")
+    ax2.set_ylabel('Compressed Size (KB)')
+    ax2.get_legend().set_title("Compressed")
+    sns.move_legend(ax2, 'upper center')
+    ax1.set_xlim(xmin=0, xmax=55)
+    ax1.yaxis.set_major_formatter(lambda y, pos: (f'%.0f' % (y/1000)))
+    ax2.yaxis.set_major_formatter(lambda y, pos: (f'%.0f' % (y/1000)))
+    ax1.set_ylim(ymin=0, ymax=70000)
+    ax2.set_ylim(ymin=0, ymax=70000)
+
+    plt.tight_layout()
+    plt.savefig(bench_path.replace('sizes.csv', 'BLS12-381_Groth16_proof_size.png'))
+
+    fig.clear()
 
 if __name__ == "__main__":
     main()
