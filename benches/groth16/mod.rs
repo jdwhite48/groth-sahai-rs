@@ -44,7 +44,7 @@ use groth_sahai::{
 };
 #[cfg(feature = "groth16")]
 use groth_sahai::gadgets::groth16::*;
-use crate::util::*;
+use crate::utils::*;
 
 #[derive(Clone)]
 // Groth16 zkSNARK circuit as proven with GS is irrelevant; just verify that a + b = c for simplicity, with public input a

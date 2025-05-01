@@ -42,13 +42,14 @@ def report_benchmarks(verbose=False):
     report_groth16_prove_benchmarks(bls12_g16_time_bench_path, verbose)
     report_groth16_verify_benchmarks(bls12_g16_time_bench_path, verbose)
     report_groth16_size_benchmarks(os.path.join(logs_dir, 'sizes.csv'), "BLS12-381", verbose)
+    report_groth16_memory_benchmarks(os.path.join(logs_dir, 'memory.csv'), verbose)
+
 
     # BN254 benchmark graphs
     bn254_g16_time_bench_path = os.path.join(logs_dir, 'BN254_Groth16_time.csv')
     report_groth16_prove_benchmarks(bn254_g16_time_bench_path, verbose)
     report_groth16_verify_benchmarks(bn254_g16_time_bench_path, verbose)
     report_groth16_size_benchmarks(os.path.join(logs_dir, 'sizes.csv'), "BN254", verbose)
-
 
 def report_groth16_prove_benchmarks(bench_path, verbose=False):
 
@@ -169,6 +170,14 @@ def report_groth16_size_benchmarks(bench_path, field_str, verbose=False):
     plt.savefig(bench_path.replace('sizes.csv', f'{field_str}_Groth16_proof_size.png'))
 
     fig.clear()
+
+def report_groth16_memory_benchmarks(bench_path, verbose=False):
+    mem_df = pd.read_csv(bench_path)
+    #mem_df["Max RSS (B)"] = mem_df["Max RSS (KB)"] / 1000
+    mem_df["Page Size (KB)"] = mem_df["Page Size (B)"] / 1000
+    mem_df["Heap + Stack Size (KB)"] = mem_df["Heap + Stack Size (B)"] / 1000
+    mem_df = mem_df[["description", "Heap + Stack Size (KB)", "Page Size (KB)", "Max RSS (KB)"]]
+    print(mem_df)
 
 if __name__ == "__main__":
     main()

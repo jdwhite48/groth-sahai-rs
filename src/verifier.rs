@@ -25,7 +25,9 @@ impl<E: Pairing> Verifiable<E> for PPE<E> {
         for i in 0..com_proof.equ_proofs.len() {
             assert_eq!(self.get_type(), com_proof.equ_proofs[i].equ_type);
         }
-        let is_parallel = true;
+
+        // TODO: Expose this in the API
+        let is_parallel = false;
 
         let lin_a_com_y = ComT::<E>::pairing_sum(
             &Com1::<E>::batch_linear_map(&self.a_consts),
@@ -59,7 +61,9 @@ impl<E: Pairing> Verifiable<E> for MSMEG1<E> {
     fn verify(&self, com_proof: &CProof<E>, crs: &CRS<E>) -> bool {
         assert_eq!(com_proof.equ_proofs.len(), 1);
         assert_eq!(self.get_type(), com_proof.equ_proofs[0].equ_type);
-        let is_parallel = true;
+
+        // TODO: Expose this in the API
+        let is_parallel = false;
 
         let lin_a_com_y = ComT::<E>::pairing_sum(
             &Com1::<E>::batch_linear_map(&self.a_consts),
@@ -93,6 +97,8 @@ impl<E: Pairing> Verifiable<E> for MSMEG2<E> {
     fn verify(&self, com_proof: &CProof<E>, crs: &CRS<E>) -> bool {
         assert_eq!(com_proof.equ_proofs.len(), 1);
         assert_eq!(self.get_type(), com_proof.equ_proofs[0].equ_type);
+
+        // TODO: Expose this in the API
         let is_parallel = true;
 
         let lin_a_com_y = ComT::<E>::pairing_sum(
@@ -127,6 +133,8 @@ impl<E: Pairing> Verifiable<E> for QuadEqu<E> {
     fn verify(&self, com_proof: &CProof<E>, crs: &CRS<E>) -> bool {
         assert_eq!(com_proof.equ_proofs.len(), 1);
         assert_eq!(self.get_type(), com_proof.equ_proofs[0].equ_type);
+
+        // TODO: Expose this in the API
         let is_parallel = true;
 
         let lin_a_com_y = ComT::<E>::pairing_sum(

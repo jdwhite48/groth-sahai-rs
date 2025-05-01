@@ -8,7 +8,7 @@ use ark_ec::{
 };
 use ark_ff::UniformRand;
 
-use crate::util::*;
+use crate::utils::*;
 
 use ark_bls12_381::Bls12_381;
 use ark_bn254::Bn254;

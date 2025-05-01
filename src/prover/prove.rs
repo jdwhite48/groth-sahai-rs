@@ -61,7 +61,7 @@ pub struct EquProof<E: Pairing> {
 }
 
 /// A collection of committed variables and proofs for Groth-Sahai compatible bilinear equations.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct CProof<E: Pairing> {
     pub xcoms: Commit1<E>,
     pub ycoms: Commit2<E>,
@@ -113,7 +113,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::G2Affine, PairingOutput<E>> for PPE
         assert_eq!(ycoms.rand[0].len(), 2);
         let _n = yvars.len();
 
-        let is_parallel = true;
+        // TODO: Expose this option in the API
+        let is_parallel = false;
 
         // (2 x m) field matrix R^T, in GS parlance
         let x_rand_trans = xcoms.rand.transpose();
@@ -216,7 +217,8 @@ impl<E: Pairing> Provable<E, E::G1Affine, E::ScalarField, E::G1Affine> for MSMEG
         assert_eq!(scalar_ycoms.rand[0].len(), 1);
         let _n_prime = scalar_yvars.len();
 
-        let is_parallel = true;
+        // TODO: Expose this option in the API
+        let is_parallel = false;
 
         // (2 x m) field matrix R^T, in GS parlance
         let x_rand_trans = xcoms.rand.transpose();
@@ -319,7 +321,8 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::G2Affine, E::G2Affine> for MSMEG
         assert_eq!(ycoms.rand[0].len(), 2);
         let _n = yvars.len();
 
-        let is_parallel = true;
+        // TODO: Expose this option in the API
+        let is_parallel = false;
 
         // (1 x m') field matrix r^T, in GS parlance
         let x_rand_trans = scalar_xcoms.rand.transpose();
@@ -430,7 +433,8 @@ impl<E: Pairing> Provable<E, E::ScalarField, E::ScalarField, E::ScalarField> for
         assert_eq!(scalar_ycoms.rand[0].len(), 1);
         let _n_prime = scalar_yvars.len();
 
-        let is_parallel = true;
+        // TODO: Expose this option in the API
+        let is_parallel = false;
 
         // (1 x m') field matrix r^T, in GS parlance
         let x_rand_trans = scalar_xcoms.rand.transpose();
